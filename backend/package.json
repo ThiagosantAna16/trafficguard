@@ -1,0 +1,24 @@
+{
+  "name": "trafficguard-backend",
+  "version": "1.0.0",
+  "description": "Backend Node.js + Fastify para o TrafficGuard",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@fastify/cors": "^9.0.1",
+    "axios": "^1.7.7",
+    "dayjs": "^1.11.12",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1",
+    "firebase-admin": "^12.3.1",
+    "ioredis": "^5.4.1",
+    "node-cron": "^3.0.3",
+    "pino-pretty": "^11.2.2"
+  }
+}

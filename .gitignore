@@ -1,0 +1,20 @@
+# Dev data store (JSON local para testes — não vai para produção)
+dev-trafficguard.json
+
+# Scripts locais de desenvolvimento
+start-frontend.bat
+
+# Context / notas locais
+context.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
