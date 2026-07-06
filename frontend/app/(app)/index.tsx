@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView,
   RefreshControl, TouchableOpacity,
@@ -20,12 +20,24 @@ export default function HomeScreen() {
   const [routes, setRoutes] = useState<Route[]>([]);
   const [recentAlert, setRecentAlert] = useState<Alert | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const backfilled = useRef(false);
 
   const load = useCallback(async () => {
     try {
       const [r, a] = await Promise.all([routesApi.list(), alertsApi.list()]);
       setRoutes(r);
       setRecentAlert(a[0] ?? null);
+
+      // Backfill (uma vez): rotas ativas sem verificação → checa e recarrega,
+      // para preencher a chegada prevista de rotas antigas.
+      if (!backfilled.current) {
+        const stale = r.filter(x => x.isActive && !x.lastCheck);
+        if (stale.length) {
+          backfilled.current = true;
+          await Promise.all(stale.map(x => routesApi.checkNow(x.routeId ?? x.id ?? '').catch(() => {})));
+          setRoutes(await routesApi.list());
+        }
+      }
     } catch {}
   }, []);
 
@@ -141,9 +153,11 @@ export default function HomeScreen() {
                 </View>
                 <View style={styles.routeStat}>
                   <Text style={styles.routeStatLabel}>Chegada prev.</Text>
-                  <Text style={styles.routeStatValue}>
-                    {route.lastCheck ? arrivalTime(route.departureTime, route.lastCheck.currentTime) : '—'}
-                  </Text>
+                  {route.lastCheck ? (
+                    <Text style={styles.routeStatValue}>{arrivalTime(route.departureTime, route.lastCheck.currentTime)}</Text>
+                  ) : (
+                    <Text style={styles.routeStatPending}>calculando…</Text>
+                  )}
                 </View>
                 <View style={styles.routeStat}>
                   <Text style={styles.routeStatLabel}>Atraso</Text>
@@ -156,7 +170,7 @@ export default function HomeScreen() {
                       <Text style={[styles.routeStatValue, { color: colors.green }]}>no horário</Text>
                     )
                   ) : (
-                    <Text style={styles.routeStatValue}>—</Text>
+                    <Text style={styles.routeStatPending}>calculando…</Text>
                   )}
                 </View>
               </View>
@@ -227,4 +241,5 @@ const styles = StyleSheet.create({
   routeStat: { flex: 1, gap: 3 },
   routeStatLabel: { fontFamily: fonts.sansMedium, fontSize: 9.5, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.4 },
   routeStatValue: { fontFamily: fonts.mono, fontSize: 14, color: colors.textPrimary },
+  routeStatPending: { fontFamily: fonts.sans, fontSize: 11.5, color: colors.textMuted, fontStyle: 'italic' },
 });
