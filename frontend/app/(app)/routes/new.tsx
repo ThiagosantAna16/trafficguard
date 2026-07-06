@@ -8,7 +8,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../../src/theme/colors';
 import { fonts } from '../../../src/theme/typography';
 import { routesApi } from '../../../src/api/routes';
+import { GeoResult } from '../../../src/api/geocode';
 import { Button } from '../../../src/components/Button';
+import { AddressField } from '../../../src/components/AddressField';
 import { CheckIcon } from '../../../src/components/Icon';
 
 const DAYS = [
@@ -24,12 +26,8 @@ export default function NewRouteScreen() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   const [name, setName] = useState('');
-  const [originAddress, setOriginAddress] = useState('');
-  const [originLat, setOriginLat] = useState('');
-  const [originLng, setOriginLng] = useState('');
-  const [destAddress, setDestAddress] = useState('');
-  const [destLat, setDestLat] = useState('');
-  const [destLng, setDestLng] = useState('');
+  const [origin, setOrigin] = useState<GeoResult | null>(null);
+  const [destination, setDestination] = useState<GeoResult | null>(null);
   const [departureTime, setDepartureTime] = useState('08:00');
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]);
   const [alertTolerance, setAlertTolerance] = useState(10);
@@ -39,8 +37,8 @@ export default function NewRouteScreen() {
     setDaysOfWeek(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d].sort());
 
   const handleSave = async () => {
-    if (!name || !originAddress || !destAddress || !departureTime) {
-      Alert.alert('Campos obrigatórios', 'Preencha nome, endereços e horário de saída.');
+    if (!name || !origin || !destination) {
+      Alert.alert('Campos obrigatórios', 'Preencha o nome e busque os endereços de origem e destino.');
       return;
     }
     if (daysOfWeek.length === 0) {
@@ -56,16 +54,8 @@ export default function NewRouteScreen() {
     try {
       await routesApi.create({
         name,
-        origin: {
-          address: originAddress,
-          lat: parseFloat(originLat) || -23.5505,
-          lng: parseFloat(originLng) || -46.6333,
-        },
-        destination: {
-          address: destAddress,
-          lat: parseFloat(destLat) || -23.5615,
-          lng: parseFloat(destLng) || -46.6560,
-        },
+        origin,
+        destination,
         departureTime,
         daysOfWeek,
         alertTolerance,
@@ -105,22 +95,15 @@ export default function NewRouteScreen() {
           />
 
           <SectionHeader title="Origem" />
-          <FieldLabel>Endereço</FieldLabel>
-          <TextInput
-            style={inputStyle('originAddr')} value={originAddress} onChangeText={setOriginAddress}
-            placeholder="Rua das Flores, 123 — São Paulo" placeholderTextColor={colors.textMuted}
-            onFocus={() => setFocusedField('originAddr')} onBlur={() => setFocusedField(null)}
-          />
+          <FieldLabel>De onde você sai</FieldLabel>
+          <AddressField value={origin} onSelect={setOrigin} placeholder="Buscar endereço de partida..." />
 
           <SectionHeader title="Destino" />
-          <FieldLabel>Endereço</FieldLabel>
-          <TextInput
-            style={inputStyle('destAddr')} value={destAddress} onChangeText={setDestAddress}
-            placeholder="Av. Paulista, 1000 — São Paulo" placeholderTextColor={colors.textMuted}
-            onFocus={() => setFocusedField('destAddr')} onBlur={() => setFocusedField(null)}
-          />
+          <FieldLabel>Para onde você vai</FieldLabel>
+          <AddressField value={destination} onSelect={setDestination} placeholder="Buscar endereço de destino..." />
 
-          <SectionHeader title="Horário e dias" />
+          <SectionHeader title="Horário de saída e dias" />
+          <FieldLabel>Horário em que você sai do local de origem</FieldLabel>
           <TextInput
             style={[inputStyle('time'), styles.timeInput]} value={departureTime} onChangeText={setDepartureTime}
             placeholder="08:00" placeholderTextColor={colors.textMuted}

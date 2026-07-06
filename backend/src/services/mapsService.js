@@ -3,8 +3,36 @@ import { cacheService } from './cacheService.js';
 
 const ROUTING_BASE = 'https://api.tomtom.com/routing/1/calculateRoute';
 const STATIC_MAP_URL = 'https://api.tomtom.com/map/1/staticimage';
+const SEARCH_BASE = 'https://api.tomtom.com/search/2/search';
 
 export const mapsService = {
+  /**
+   * Busca de endereços (autocomplete) via TomTom Search API.
+   * Retorna resultados já normalizados como { address, lat, lng }.
+   */
+  async searchAddress(query) {
+    const { data } = await axios.get(
+      `${SEARCH_BASE}/${encodeURIComponent(query)}.json`,
+      {
+        params: {
+          key: process.env.TOMTOM_API_KEY,
+          countrySet: 'BR',
+          limit: 6,
+          language: 'pt-BR',
+          idxSet: 'PAD,Str,POI,Geo', // endereços, ruas, pontos de interesse
+        },
+        timeout: 8000,
+      }
+    );
+    return (data.results ?? [])
+      .map(r => ({
+        address: r.address?.freeformAddress ?? query,
+        lat: r.position?.lat,
+        lng: r.position?.lon,
+      }))
+      .filter(r => typeof r.lat === 'number' && typeof r.lng === 'number');
+  },
+
   /**
    * Consulta a TomTom Routing API com tráfego em tempo real.
    * Retorna a rota principal + alternativas, com tempo com/sem trânsito.

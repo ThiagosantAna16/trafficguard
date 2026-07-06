@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../src/theme/colors';
 import { fonts } from '../../src/theme/typography';
@@ -14,8 +14,15 @@ import { LogOutIcon } from '../../src/components/Icon';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { user, clear } = useAuthStore();
+  const { user, clear, setUser } = useAuthStore();
   const [deletingAccount, setDeletingAccount] = useState(false);
+
+  // Reatualiza o perfil sempre que a aba ganha foco (ex.: após criar/excluir rota)
+  useFocusEffect(
+    useCallback(() => {
+      usersApi.getMe().then(setUser).catch(() => {});
+    }, [setUser])
+  );
 
   const handleLogout = async () => {
     try {
