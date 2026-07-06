@@ -24,6 +24,12 @@ export async function registerForPushNotificationsAsync(): Promise<string | null
 
   if (finalStatus !== 'granted') return null;
 
-  const token = await Notifications.getExpoPushTokenAsync();
-  return token.data;
+  // Em build standalone sem credenciais de push, getExpoPushTokenAsync pode
+  // lançar — nunca deixe isso bloquear login/boot.
+  try {
+    const token = await Notifications.getExpoPushTokenAsync();
+    return token.data;
+  } catch {
+    return null;
+  }
 }
