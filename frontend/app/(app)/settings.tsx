@@ -5,10 +5,12 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../src/theme/colors';
+import { fonts } from '../../src/theme/typography';
 import { useAuthStore } from '../../src/stores/authStore';
 import { usersApi } from '../../src/api/users';
 import { clearToken } from '../../src/lib/session';
 import { Button } from '../../src/components/Button';
+import { LogOutIcon } from '../../src/components/Icon';
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -58,112 +60,76 @@ export default function SettingsScreen() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={styles.pageTitle}>Perfil</Text>
 
-        {/* Profile card */}
-        <View style={styles.profileCard}>
-          <View style={styles.avatarWrap}>
-            <Text style={styles.avatarText}>
-              {user?.name?.charAt(0).toUpperCase() ?? '?'}
-            </Text>
-            <View style={styles.avatarGlow} />
+        <View style={styles.profileRow}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{user?.name?.charAt(0).toUpperCase() ?? '?'}</Text>
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.userName}>{user?.name ?? 'Usuário'}</Text>
             <Text style={styles.userEmail}>{user?.email ?? ''}</Text>
           </View>
-          <View style={[
-            styles.planBadge,
-            isPro ? styles.planBadgePro : styles.planBadgeFree,
-          ]}>
-            <Text style={[styles.planText, isPro ? { color: colors.amber } : {}]}>
-              {isPro ? '⚡ Pro' : '🆓 Free'}
-            </Text>
+          <View style={styles.planTag}>
+            <Text style={styles.planText}>{isPro ? 'PRO' : 'FREE'}</Text>
           </View>
         </View>
 
-        {/* Stats strip */}
         <View style={styles.statsRow}>
-          <StatItem value={`${user?.routesCount ?? 0}/3`} label="Rotas" icon="🛣️" />
-          <View style={styles.statsDivider} />
-          <StatItem value={isPro ? 'Pro' : 'Gratuito'} label="Plano" icon="💎" />
-          <View style={styles.statsDivider} />
-          <StatItem value="1.0.0" label="Versão" icon="📱" />
+          <StatItem value={`${user?.routesCount ?? 0}/3`} label="Rotas" />
+          <StatItem value={isPro ? 'Pro' : 'Gratuito'} label="Plano" />
+          <StatItem value="1.0.0" label="Versão" />
         </View>
 
-        {/* Account section */}
         <SectionTitle title="Conta" />
         <View style={styles.settingsGroup}>
-          <SettingsRow icon="👤" label="Nome" value={user?.name ?? '—'} />
-          <View style={styles.rowDivider} />
-          <SettingsRow icon="✉️" label="E-mail" value={user?.email ?? '—'} />
-          <View style={styles.rowDivider} />
-          <SettingsRow icon="📋" label="Plano atual" value={isPro ? 'Pro' : 'Gratuito'} />
+          <SettingsRow label="Nome" value={user?.name ?? '—'} />
+          <SettingsRow label="E-mail" value={user?.email ?? '—'} />
+          <SettingsRow label="Plano atual" value={isPro ? 'Pro' : 'Gratuito'} last />
         </View>
 
-        {/* Notifications section */}
         <SectionTitle title="Notificações" />
-        <View style={styles.settingsGroup}>
-          <View style={styles.notifBox}>
-            <Text style={styles.notifIcon}>🔔</Text>
-            <Text style={styles.notifText}>
-              Os alertas são enviados automaticamente pelo servidor, no horário configurado em cada rota — quando o trânsito superar a tolerância definida.
-            </Text>
-          </View>
-        </View>
+        <Text style={styles.notifText}>
+          Os alertas são enviados automaticamente pelo servidor, no horário configurado em cada rota — quando o trânsito superar a tolerância definida.
+        </Text>
 
-        {/* About section */}
         <SectionTitle title="Sobre" />
         <View style={styles.settingsGroup}>
-          <SettingsRow icon="🚦" label="TrafficGuard" value="v1.0.0" />
-          <View style={styles.rowDivider} />
-          <SettingsRow icon="🗺️" label="Dados de tráfego" value="TomTom" />
-          <View style={styles.rowDivider} />
-          <SettingsRow icon="⚙️" label="Backend" value="Node.js + Fastify" />
+          <SettingsRow label="TrafficGuard" value="v1.0.0" />
+          <SettingsRow label="Dados de tráfego" value="TomTom" />
+          <SettingsRow label="Backend" value="Node.js + Fastify" last />
         </View>
 
-        {/* Actions */}
         <View style={styles.actions}>
           <Button
             label="Sair da conta"
-            icon="🚪"
+            icon={<LogOutIcon color={colors.textPrimary} />}
             onPress={handleLogout}
             variant="outline"
           />
-          <Button
-            label={deletingAccount ? 'Excluindo...' : 'Excluir conta'}
-            icon="🗑️"
-            onPress={handleDeleteAccount}
-            variant="danger"
-            loading={deletingAccount}
-          />
+          <TouchableOpacity onPress={handleDeleteAccount} style={styles.deleteBtn}>
+            <Text style={styles.deleteText}>{deletingAccount ? 'Excluindo...' : 'Excluir conta'}</Text>
+          </TouchableOpacity>
         </View>
 
-        <Text style={styles.legal}>
-          TrafficGuard  •  Dados de tráfego por TomTom{'\n'}
-          Feito com 💙 para facilitar seu dia a dia
-        </Text>
+        <Text style={styles.legal}>TrafficGuard · Dados de tráfego por TomTom</Text>
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-function StatItem({ value, label, icon }: { value: string; label: string; icon: string }) {
+function StatItem({ value, label }: { value: string; label: string }) {
   return (
     <View style={statStyles.item}>
-      <Text style={statStyles.icon}>{icon}</Text>
       <Text style={statStyles.value}>{value}</Text>
       <Text style={statStyles.label}>{label}</Text>
     </View>
   );
 }
-
 function SectionTitle({ title }: { title: string }) {
   return <Text style={secStyles.title}>{title}</Text>;
 }
-
-function SettingsRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+function SettingsRow({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
-    <View style={rowStyles.wrap}>
-      <Text style={rowStyles.icon}>{icon}</Text>
+    <View style={[rowStyles.wrap, !last && rowStyles.divider]}>
       <Text style={rowStyles.label}>{label}</Text>
       <Text style={rowStyles.value} numberOfLines={1}>{value}</Text>
     </View>
@@ -171,114 +137,36 @@ function SettingsRow({ icon, label, value }: { icon: string; label: string; valu
 }
 
 const statStyles = StyleSheet.create({
-  item: { flex: 1, alignItems: 'center', gap: 2 },
-  icon: { fontSize: 20, marginBottom: 2 },
-  value: { fontSize: 17, fontWeight: '800', color: colors.textPrimary },
-  label: { fontSize: 11, color: colors.textMuted, fontWeight: '600' },
+  item: { flex: 1, alignItems: 'center' },
+  value: { fontFamily: fonts.mono, fontSize: 16, color: colors.textPrimary },
+  label: { fontFamily: fonts.sansMedium, fontSize: 10.5, color: colors.textMuted, marginTop: 4, textTransform: 'uppercase', letterSpacing: 0.4 },
 });
-
 const secStyles = StyleSheet.create({
-  title: {
-    fontSize: 12,
-    color: colors.textMuted,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    paddingHorizontal: 4,
-  },
+  title: { fontFamily: fonts.sansSemiBold, fontSize: 11, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 10 },
 });
-
 const rowStyles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-  },
-  icon: { fontSize: 18, width: 24 },
-  label: { flex: 1, fontSize: 14, color: colors.textSecondary, fontWeight: '600' },
-  value: { fontSize: 14, color: colors.textPrimary, fontWeight: '700', maxWidth: '50%' },
+  wrap: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 12 },
+  divider: { borderBottomWidth: 1, borderBottomColor: colors.border },
+  label: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.textSecondary },
+  value: { fontFamily: fonts.sansMedium, fontSize: 13.5, color: colors.textPrimary, maxWidth: '55%' },
 });
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.darkBg },
-  scroll: { padding: 20, paddingBottom: 48, gap: 14 },
-  pageTitle: { fontSize: 26, fontWeight: '800', color: colors.textPrimary, marginBottom: 4 },
-  profileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    backgroundColor: colors.surface,
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 7,
-  },
-  avatarWrap: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: colors.primaryGlow,
-    borderWidth: 2,
-    borderColor: colors.primaryBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarGlow: {
-    position: 'absolute',
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-  },
-  avatarText: { color: colors.primary, fontSize: 24, fontWeight: '800' },
-  userName: { fontSize: 17, fontWeight: '800', color: colors.textPrimary },
-  userEmail: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
-  planBadge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, borderWidth: 1 },
-  planBadgeFree: { backgroundColor: colors.surfaceRaised, borderColor: colors.border },
-  planBadgePro: { backgroundColor: colors.amberBg, borderColor: colors.amberBorder },
-  planText: { color: colors.textSecondary, fontSize: 12, fontWeight: '700' },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    paddingVertical: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statsDivider: { width: 1, height: 32, backgroundColor: colors.border },
-  settingsGroup: {
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  rowDivider: { height: 1, backgroundColor: colors.border, marginHorizontal: 16 },
-  notifBox: { flexDirection: 'row', gap: 12, padding: 16, alignItems: 'flex-start' },
-  notifIcon: { fontSize: 22, marginTop: 1 },
-  notifText: { flex: 1, fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
-  actions: { gap: 12, marginTop: 8 },
-  legal: {
-    fontSize: 12,
-    color: colors.textMuted,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 20,
-  },
+  scroll: { padding: 24, paddingBottom: 48, gap: 24 },
+  pageTitle: { fontFamily: fonts.serifSemiBold, fontSize: 25, color: colors.textPrimary },
+  profileRow: { flexDirection: 'row', alignItems: 'center', gap: 14, borderBottomWidth: 1, borderBottomColor: colors.border, paddingBottom: 20 },
+  avatar: { width: 48, height: 48, borderWidth: 1, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontFamily: fonts.serifSemiBold, fontSize: 18, color: colors.textPrimary },
+  userName: { fontFamily: fonts.sansSemiBold, fontSize: 15.5, color: colors.textPrimary },
+  userEmail: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.textSecondary, marginTop: 2 },
+  planTag: { borderWidth: 1, borderColor: colors.borderStrong, paddingHorizontal: 8, paddingVertical: 4 },
+  planText: { fontFamily: fonts.mono, fontSize: 11, color: colors.textSecondary, letterSpacing: 0.4 },
+  statsRow: { flexDirection: 'row' },
+  settingsGroup: {},
+  notifText: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
+  actions: { gap: 10 },
+  deleteBtn: { alignItems: 'center', paddingVertical: 10 },
+  deleteText: { fontFamily: fonts.sansMedium, fontSize: 13, color: colors.red },
+  legal: { fontFamily: fonts.sans, fontSize: 11.5, color: colors.textMuted, textAlign: 'center' },
 });

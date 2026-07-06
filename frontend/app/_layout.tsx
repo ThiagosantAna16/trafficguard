@@ -1,15 +1,22 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { View } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 import { useAuthStore } from '../src/stores/authStore';
 import { usersApi } from '../src/api/users';
 import { getToken, setToken as persistToken, clearToken } from '../src/lib/session';
 import { registerForPushNotificationsAsync } from '../src/utils/notifications';
+import { useAppFonts } from '../src/theme/typography';
+import { colors } from '../src/theme/colors';
 
 const DEV_MODE = process.env.EXPO_PUBLIC_DEV_MODE === 'true';
 
+SplashScreen.preventAutoHideAsync().catch(() => {});
+
 export default function RootLayout() {
   const { setSession, setToken, setUser, setLoading } = useAuthStore();
+  const [fontsLoaded] = useAppFonts();
 
   useEffect(() => {
     (async () => {
@@ -52,10 +59,16 @@ export default function RootLayout() {
     })();
   }, []);
 
+  const onLayoutRootView = useCallback(async () => {
+    if (fontsLoaded) await SplashScreen.hideAsync();
+  }, [fontsLoaded]);
+
+  if (!fontsLoaded) return null;
+
   return (
-    <>
+    <View style={{ flex: 1, backgroundColor: colors.darkBg }} onLayout={onLayoutRootView}>
       <StatusBar style="light" />
       <Stack screenOptions={{ headerShown: false }} />
-    </>
+    </View>
   );
 }

@@ -6,6 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../../src/theme/colors';
+import { fonts } from '../../../src/theme/typography';
 import { routesApi } from '../../../src/api/routes';
 import { Route } from '../../../src/types';
 
@@ -60,7 +61,7 @@ export default function RoutesScreen() {
     );
   };
 
-  const DAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'];
+  const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
   const routeId = (r: Route) => r.routeId ?? r.id ?? '';
 
   return (
@@ -71,11 +72,8 @@ export default function RoutesScreen() {
           <Text style={styles.subtitle}>{routes.length}/3 rotas cadastradas</Text>
         </View>
         {routes.length < 3 && (
-          <TouchableOpacity
-            style={styles.fabBtn}
-            onPress={() => router.push('/(app)/routes/new')}
-          >
-            <Text style={styles.fabText}>+</Text>
+          <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/(app)/routes/new')}>
+            <Text style={styles.addBtnText}>+</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -84,17 +82,14 @@ export default function RoutesScreen() {
         data={routes}
         keyExtractor={r => routeId(r)}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
         showsVerticalScrollIndicator={false}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
           <View style={styles.emptyWrap}>
-            <Text style={styles.emptyIcon}>🗺️</Text>
             <Text style={styles.emptyTitle}>Nenhuma rota ainda</Text>
             <Text style={styles.emptyText}>Cadastre até 3 rotas para monitorar o trânsito automaticamente.</Text>
-            <TouchableOpacity
-              style={styles.emptyBtn}
-              onPress={() => router.push('/(app)/routes/new')}
-            >
+            <TouchableOpacity onPress={() => router.push('/(app)/routes/new')}>
               <Text style={styles.emptyBtnText}>+ Cadastrar primeira rota</Text>
             </TouchableOpacity>
           </View>
@@ -102,58 +97,28 @@ export default function RoutesScreen() {
         renderItem={({ item }) => (
           <TouchableOpacity
             onPress={() => router.push(`/(app)/routes/${routeId(item)}`)}
-            activeOpacity={0.85}
+            activeOpacity={0.8}
+            style={[styles.row, !item.isActive && styles.rowPaused]}
           >
-            <View style={[styles.card, !item.isActive && styles.cardPaused]}>
-              {/* Color accent bar */}
-              <View style={[styles.accentBar, { backgroundColor: item.isActive ? colors.green : colors.textMuted }]} />
-
-              <View style={styles.cardContent}>
-                {/* Header row */}
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardName} numberOfLines={1}>
-                    {item.emoji ?? '📍'}  {item.name}
-                  </Text>
-                  <Switch
-                    value={item.isActive}
-                    onValueChange={() => handleToggle(item)}
-                    disabled={toggling === routeId(item)}
-                    trackColor={{ true: colors.primary, false: colors.border }}
-                    thumbColor={item.isActive ? colors.textDark : '#fff'}
-                    ios_backgroundColor={colors.border}
-                  />
-                </View>
-
-                {/* Route path */}
-                <View style={styles.pathWrap}>
-                  <View style={styles.pathRow}>
-                    <View style={[styles.pathDot, { backgroundColor: colors.green }]} />
-                    <Text style={styles.pathText} numberOfLines={1}>{item.origin.address}</Text>
-                  </View>
-                  <View style={styles.pathConnector} />
-                  <View style={styles.pathRow}>
-                    <View style={[styles.pathDot, { backgroundColor: colors.primary }]} />
-                    <Text style={styles.pathText} numberOfLines={1}>{item.destination.address}</Text>
-                  </View>
-                </View>
-
-                {/* Meta chips */}
-                <View style={styles.chips}>
-                  <Chip icon="🕐" label={item.departureTime} />
-                  <Chip icon="📅" label={item.daysOfWeek.map(d => DAYS[d]).join('')} />
-                  <Chip icon="⏱" label={`±${item.alertTolerance}min`} />
-                </View>
-
-                {/* Delete */}
-                <TouchableOpacity
-                  onPress={() => handleDelete(item)}
-                  style={styles.deleteBtn}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.deleteBtnText}>🗑  Excluir rota</Text>
-                </TouchableOpacity>
-              </View>
+            <View style={styles.rowHeader}>
+              <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+              <Switch
+                value={item.isActive}
+                onValueChange={() => handleToggle(item)}
+                disabled={toggling === routeId(item)}
+                trackColor={{ true: colors.accent, false: colors.border }}
+                thumbColor={item.isActive ? colors.textDark : '#8B939C'}
+                ios_backgroundColor={colors.border}
+              />
             </View>
+            <Text style={styles.pathText} numberOfLines={1}>{item.origin.address}</Text>
+            <Text style={styles.pathText} numberOfLines={1}>{item.destination.address}</Text>
+            <Text style={styles.metaText}>
+              {item.departureTime} · {item.daysOfWeek.map(d => DAYS[d].slice(0, 3)).join(' ')} · ±{item.alertTolerance}min
+            </Text>
+            <TouchableOpacity onPress={() => handleDelete(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.deleteText}>Excluir rota</Text>
+            </TouchableOpacity>
           </TouchableOpacity>
         )}
       />
@@ -161,103 +126,27 @@ export default function RoutesScreen() {
   );
 }
 
-function Chip({ icon, label }: { icon: string; label: string }) {
-  return (
-    <View style={chipStyles.wrap}>
-      <Text style={chipStyles.icon}>{icon}</Text>
-      <Text style={chipStyles.label}>{label}</Text>
-    </View>
-  );
-}
-
-const chipStyles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.surfaceBright,
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  icon: { fontSize: 12 },
-  label: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
-});
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.darkBg },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 24, paddingTop: 8, paddingBottom: 20,
   },
-  title: { fontSize: 24, fontWeight: '800', color: colors.textPrimary },
-  subtitle: { fontSize: 13, color: colors.textMuted, marginTop: 2, fontWeight: '600' },
-  fabBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.45,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  fabText: { color: colors.textDark, fontSize: 26, fontWeight: '700', lineHeight: 30 },
-  list: { paddingHorizontal: 20, paddingBottom: 32, gap: 14 },
-  card: {
-    flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  cardPaused: { opacity: 0.55 },
-  accentBar: { width: 4, alignSelf: 'stretch' },
-  cardContent: { flex: 1, padding: 16, gap: 12 },
-  cardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  cardName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, flex: 1, marginRight: 8 },
-  pathWrap: { gap: 4 },
-  pathRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  pathDot: { width: 8, height: 8, borderRadius: 4, flexShrink: 0 },
-  pathConnector: { width: 1.5, height: 10, backgroundColor: colors.border, marginLeft: 3 },
-  pathText: { fontSize: 13, color: colors.textSecondary, flex: 1 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  deleteBtn: { alignSelf: 'flex-start' },
-  deleteBtnText: { color: colors.red, fontSize: 13, fontWeight: '600' },
-  emptyWrap: { alignItems: 'center', paddingVertical: 60, paddingHorizontal: 32, gap: 10 },
-  emptyIcon: { fontSize: 56 },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: colors.textPrimary },
-  emptyText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
-  emptyBtn: {
-    marginTop: 8,
-    backgroundColor: colors.primary,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 14,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 6,
-  },
-  emptyBtnText: { color: colors.textDark, fontWeight: '700', fontSize: 15 },
+  title: { fontFamily: fonts.serifSemiBold, fontSize: 23, color: colors.textPrimary },
+  subtitle: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.textMuted, marginTop: 4 },
+  addBtn: { width: 36, height: 36, borderWidth: 1, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
+  addBtnText: { fontSize: 18, color: colors.textPrimary },
+  list: { paddingHorizontal: 24, paddingBottom: 32 },
+  separator: { height: 1, backgroundColor: colors.border, marginVertical: 20 },
+  row: { gap: 10 },
+  rowPaused: { opacity: 0.5 },
+  rowHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  rowName: { fontFamily: fonts.sansSemiBold, fontSize: 15.5, color: colors.textPrimary, flex: 1, marginRight: 8 },
+  pathText: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
+  metaText: { fontFamily: fonts.mono, fontSize: 11.5, color: colors.textMuted },
+  deleteText: { fontFamily: fonts.sansMedium, color: colors.red, fontSize: 12.5, marginTop: 4 },
+  emptyWrap: { alignItems: 'center', paddingVertical: 60, gap: 8 },
+  emptyTitle: { fontFamily: fonts.serifSemiBold, fontSize: 18, color: colors.textPrimary },
+  emptyText: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.textSecondary, textAlign: 'center', lineHeight: 20, paddingHorizontal: 24 },
+  emptyBtnText: { fontFamily: fonts.sansSemiBold, color: colors.accent, fontSize: 14, marginTop: 10 },
 });

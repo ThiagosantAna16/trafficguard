@@ -1,32 +1,23 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView,
-  RefreshControl, TouchableOpacity,
+  View, Text, StyleSheet, FlatList, TouchableOpacity,
+  RefreshControl, Switch, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import dayjs from 'dayjs';
 import { colors } from '../../src/theme/colors';
-import { useAuthStore } from '../../src/stores/authStore';
+import { fonts } from '../../src/theme/typography';
 import { routesApi } from '../../src/api/routes';
-import { alertsApi } from '../../src/api/alerts';
-import { Route, Alert } from '../../src/types';
-import { Card } from '../../src/components/Card';
-import { StatusBadge } from '../../src/components/StatusBadge';
+import { Route } from '../../src/types';
 
-export default function HomeScreen() {
+export default function RoutesScreen() {
   const router = useRouter();
-  const { user } = useAuthStore();
   const [routes, setRoutes] = useState<Route[]>([]);
-  const [recentAlert, setRecentAlert] = useState<Alert | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    try {
-      const [r, a] = await Promise.all([routesApi.list(), alertsApi.list()]);
-      setRoutes(r);
-      setRecentAlert(a[0] ?? null);
-    } catch {}
+    try { setRoutes(await routesApi.list()); } catch {}
   }, []);
 
   useEffect(() => { load(); }, []);
@@ -37,239 +28,125 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
-  const activeRoutes = routes.filter(r => r.isActive);
-  const hour = dayjs().hour();
-  const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
-  const greetEmoji = hour < 12 ? '☀️' : hour < 18 ? '🌤️' : '🌙';
-  const rId = (r: Route) => r.routeId ?? r.id ?? '';
+  const handleToggle = async (route: Route) => {
+    setToggling(route.routeId);
+    try {
+      const { isActive } = await routesApi.toggle(route.routeId);
+      setRoutes(prev => prev.map(r => r.routeId === route.routeId ? { ...r, isActive } : r));
+    } catch {
+      Alert.alert('Erro', 'Não foi possível alterar o status da rota.');
+    } finally {
+      setToggling(null);
+    }
+  };
+
+  const handleDelete = (route: Route) => {
+    Alert.alert(
+      'Excluir rota',
+      `Deseja excluir "${route.name}"? Esta ação não pode ser desfeita.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir', style: 'destructive',
+          onPress: async () => {
+            try {
+              await routesApi.delete(route.routeId);
+              setRoutes(prev => prev.filter(r => r.routeId !== route.routeId));
+            } catch {
+              Alert.alert('Erro', 'Não foi possível excluir a rota.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const DAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const routeId = (r: Route) => r.routeId ?? r.id ?? '';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>{greetEmoji}  {greeting},</Text>
-            <Text style={styles.userName}>{user?.name?.split(' ')[0] ?? 'Usuário'}</Text>
-          </View>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>
-              {user?.name?.charAt(0).toUpperCase() ?? '?'}
-            </Text>
-          </View>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Minhas Rotas</Text>
+          <Text style={styles.subtitle}>{routes.length}/3 rotas cadastradas</Text>
         </View>
-
-        {/* Alert Banner */}
-        {recentAlert && (
-          <TouchableOpacity
-            onPress={() => router.push(`/(app)/alerts/${recentAlert.alertId}`)}
-            activeOpacity={0.85}
-          >
-            <View style={[
-              styles.alertBanner,
-              { borderColor: recentAlert.delay >= 1800 ? colors.redBorder : colors.amberBorder },
-            ]}>
-              <Text style={styles.alertBannerEmoji}>
-                {recentAlert.delay >= 1800 ? '🚨' : '⚠️'}
-              </Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.alertBannerTitle}>{recentAlert.routeName}</Text>
-                <Text style={styles.alertBannerSub}>
-                  +{Math.round(recentAlert.delay / 60)} min de atraso  •  {dayjs(recentAlert.triggeredAt).format('HH:mm')}
-                </Text>
-              </View>
-              <Text style={styles.chevron}>›</Text>
-            </View>
+        {routes.length < 3 && (
+          <TouchableOpacity style={styles.addBtn} onPress={() => router.push('/(app)/routes/new')}>
+            <Text style={styles.addBtnText}>+</Text>
           </TouchableOpacity>
         )}
+      </View>
 
-        {/* Stats row */}
-        <View style={styles.statsRow}>
-          <StatCard value={`${routes.length}/3`} label="Rotas" icon="🛣️" />
-          <StatCard value={`${activeRoutes.length}`} label="Ativas" icon="✅" color={colors.green} />
-          <StatCard
-            value={recentAlert ? dayjs(recentAlert.triggeredAt).format('HH:mm') : '--:--'}
-            label="Último alerta"
-            icon="🔔"
-            color={colors.amber}
-          />
-        </View>
-
-        {/* Active routes */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Rotas ativas</Text>
-          {routes.length < 3 && (
-            <TouchableOpacity
-              onPress={() => router.push('/(app)/routes/new')}
-              style={styles.addBtn}
-            >
-              <Text style={styles.addBtnText}>+ Nova rota</Text>
+      <FlatList
+        data={routes}
+        keyExtractor={r => routeId(r)}
+        contentContainerStyle={styles.list}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.accent} />}
+        showsVerticalScrollIndicator={false}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListEmptyComponent={
+          <View style={styles.emptyWrap}>
+            <Text style={styles.emptyTitle}>Nenhuma rota ainda</Text>
+            <Text style={styles.emptyText}>Cadastre até 3 rotas para monitorar o trânsito automaticamente.</Text>
+            <TouchableOpacity onPress={() => router.push('/(app)/routes/new')}>
+              <Text style={styles.emptyBtnText}>+ Cadastrar primeira rota</Text>
             </TouchableOpacity>
-          )}
-        </View>
-
-        {activeRoutes.length === 0 ? (
-          <Card variant="glow" style={styles.emptyCard}>
-            <Text style={styles.emptyIcon}>🗺️</Text>
-            <Text style={styles.emptyTitle}>Nenhuma rota ativa</Text>
-            <Text style={styles.emptyText}>Cadastre sua primeira rota e comece a monitorar o trânsito automaticamente.</Text>
-            <TouchableOpacity
-              style={styles.emptyBtn}
-              onPress={() => router.push('/(app)/routes')}
-            >
-              <Text style={styles.emptyBtnText}>Cadastrar rota →</Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            onPress={() => router.push(`/(app)/routes/${routeId(item)}`)}
+            activeOpacity={0.8}
+            style={[styles.row, !item.isActive && styles.rowPaused]}
+          >
+            <View style={styles.rowHeader}>
+              <Text style={styles.rowName} numberOfLines={1}>{item.name}</Text>
+              <Switch
+                value={item.isActive}
+                onValueChange={() => handleToggle(item)}
+                disabled={toggling === routeId(item)}
+                trackColor={{ true: colors.accent, false: colors.border }}
+                thumbColor={item.isActive ? colors.textDark : '#8B939C'}
+                ios_backgroundColor={colors.border}
+              />
+            </View>
+            <Text style={styles.pathText} numberOfLines={1}>{item.origin.address}</Text>
+            <Text style={styles.pathText} numberOfLines={1}>{item.destination.address}</Text>
+            <Text style={styles.metaText}>
+              {item.departureTime} · {item.daysOfWeek.map(d => DAYS[d].slice(0, 3)).join(' ')} · ±{item.alertTolerance}min
+            </Text>
+            <TouchableOpacity onPress={() => handleDelete(item)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.deleteText}>Excluir rota</Text>
             </TouchableOpacity>
-          </Card>
-        ) : (
-          activeRoutes.map(route => (
-            <TouchableOpacity
-              key={rId(route)}
-              onPress={() => router.push(`/(app)/routes/${rId(route)}`)}
-              activeOpacity={0.85}
-            >
-              <Card style={styles.routeCard}>
-                <View style={styles.routeCardAccent} />
-                <View style={{ flex: 1 }}>
-                  <View style={styles.routeCardHeader}>
-                    <Text style={styles.routeName}>{route.emoji ?? '📍'} {route.name}</Text>
-                    <StatusBadge status="active" />
-                  </View>
-                  <View style={styles.routePath}>
-                    <Text style={styles.routeAddress} numberOfLines={1}>
-                      ◉  {route.origin.address}
-                    </Text>
-                    <View style={styles.routeLine} />
-                    <Text style={styles.routeAddress} numberOfLines={1}>
-                      ▼  {route.destination.address}
-                    </Text>
-                  </View>
-                  <Text style={styles.routeMeta}>
-                    🕐 {route.departureTime}  •  ⏱ aviso {route.alertAdvance} min antes
-                  </Text>
-                </View>
-              </Card>
-            </TouchableOpacity>
-          ))
+          </TouchableOpacity>
         )}
-      </ScrollView>
+      />
     </SafeAreaView>
   );
 }
 
-function StatCard({ value, label, icon, color }: { value: string; label: string; icon: string; color?: string }) {
-  return (
-    <View style={statStyles.card}>
-      <Text style={statStyles.icon}>{icon}</Text>
-      <Text style={[statStyles.value, color ? { color } : {}]}>{value}</Text>
-      <Text style={statStyles.label}>{label}</Text>
-    </View>
-  );
-}
-
-const statStyles = StyleSheet.create({
-  card: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    padding: 14,
-    alignItems: 'center',
-    gap: 2,
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  icon: { fontSize: 22, marginBottom: 2 },
-  value: { fontSize: 20, fontWeight: '800', color: colors.textPrimary },
-  label: { fontSize: 11, color: colors.textMuted, fontWeight: '600' },
-});
-
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.darkBg },
-  scroll: { padding: 20, gap: 16, paddingBottom: 32 },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 24, paddingTop: 8, paddingBottom: 20,
   },
-  greeting: { fontSize: 15, color: colors.textSecondary, fontWeight: '600' },
-  userName: { fontSize: 26, fontWeight: '800', color: colors.textPrimary, marginTop: 2 },
-  avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.primaryGlow,
-    borderWidth: 1.5,
-    borderColor: colors.primaryBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: { color: colors.primary, fontSize: 20, fontWeight: '800' },
-  alertBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: colors.surface,
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1.5,
-    shadowColor: colors.amber,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  alertBannerEmoji: { fontSize: 28 },
-  alertBannerTitle: { fontSize: 15, fontWeight: '700', color: colors.textPrimary },
-  alertBannerSub: { fontSize: 13, color: colors.textSecondary, marginTop: 2 },
-  chevron: { fontSize: 22, color: colors.textMuted },
-  statsRow: { flexDirection: 'row', gap: 10 },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 4,
-  },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: colors.textPrimary },
-  addBtn: {
-    backgroundColor: colors.primaryGlow,
-    borderWidth: 1,
-    borderColor: colors.primaryBorder,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-  },
-  addBtnText: { color: colors.primary, fontWeight: '700', fontSize: 13 },
-  emptyCard: { alignItems: 'center', padding: 28, gap: 8 },
-  emptyIcon: { fontSize: 52, marginBottom: 4 },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: colors.textPrimary },
-  emptyText: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
-  emptyBtn: { marginTop: 8 },
-  emptyBtnText: { color: colors.primary, fontSize: 15, fontWeight: '700' },
-  routeCard: { flexDirection: 'row', gap: 12, padding: 16 },
-  routeCardAccent: {
-    width: 4,
-    borderRadius: 2,
-    backgroundColor: colors.green,
-    alignSelf: 'stretch',
-  },
-  routeCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  routeName: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, flex: 1 },
-  routePath: { gap: 4, marginBottom: 10 },
-  routeLine: { width: 1.5, height: 10, backgroundColor: colors.border, marginLeft: 7 },
-  routeAddress: { fontSize: 13, color: colors.textSecondary },
-  routeMeta: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
+  title: { fontFamily: fonts.serifSemiBold, fontSize: 23, color: colors.textPrimary },
+  subtitle: { fontFamily: fonts.sans, fontSize: 12.5, color: colors.textMuted, marginTop: 4 },
+  addBtn: { width: 36, height: 36, borderWidth: 1, borderColor: colors.borderStrong, alignItems: 'center', justifyContent: 'center' },
+  addBtnText: { fontSize: 18, color: colors.textPrimary },
+  list: { paddingHorizontal: 24, paddingBottom: 32 },
+  separator: { height: 1, backgroundColor: colors.border, marginVertical: 20 },
+  row: { gap: 10 },
+  rowPaused: { opacity: 0.5 },
+  rowHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  rowName: { fontFamily: fonts.sansSemiBold, fontSize: 15.5, color: colors.textPrimary, flex: 1, marginRight: 8 },
+  pathText: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
+  metaText: { fontFamily: fonts.mono, fontSize: 11.5, color: colors.textMuted },
+  deleteText: { fontFamily: fonts.sansMedium, color: colors.red, fontSize: 12.5, marginTop: 4 },
+  emptyWrap: { alignItems: 'center', paddingVertical: 60, gap: 8 },
+  emptyTitle: { fontFamily: fonts.serifSemiBold, fontSize: 18, color: colors.textPrimary },
+  emptyText: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.textSecondary, textAlign: 'center', lineHeight: 20, paddingHorizontal: 24 },
+  emptyBtnText: { fontFamily: fonts.sansSemiBold, color: colors.accent, fontSize: 14, marginTop: 10 },
 });

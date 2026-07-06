@@ -1,15 +1,9 @@
 import { Tabs, Redirect } from 'expo-router';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useAuthStore } from '../../src/stores/authStore';
 import { colors } from '../../src/theme/colors';
-
-function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
-  return (
-    <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
-      <Text style={{ fontSize: 20 }}>{emoji}</Text>
-    </View>
-  );
-}
+import { fonts } from '../../src/theme/typography';
+import { HomeIcon, RouteIcon, BellIcon, PersonIcon } from '../../src/components/Icon';
 
 export default function AppLayout() {
   const { token, isLoading } = useAuthStore();
@@ -20,64 +14,46 @@ export default function AppLayout() {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.darkBg,
           borderTopColor: colors.border,
           borderTopWidth: 1,
           height: 68,
           paddingBottom: 10,
-          paddingTop: 6,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: -4 },
-          shadowOpacity: 0.5,
-          shadowRadius: 14,
-          elevation: 20,
+          paddingTop: 8,
         },
-        tabBarActiveTintColor: colors.primary,
+        tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.textMuted,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '700', letterSpacing: 0.2 },
+        tabBarLabelStyle: { fontSize: 10.5, fontFamily: fonts.sansMedium, letterSpacing: 0.2 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
           title: 'Início',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🏠" focused={focused} />,
+          tabBarIcon: ({ color, focused }) => <HomeIcon color={color} size={focused ? 21 : 20} />,
         }}
       />
       <Tabs.Screen
         name="routes"
         options={{
           title: 'Rotas',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🛣️" focused={focused} />,
+          tabBarIcon: ({ color, focused }) => <RouteIcon color={color} size={focused ? 21 : 20} />,
         }}
       />
       <Tabs.Screen
         name="alerts"
         options={{
           title: 'Alertas',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="🔔" focused={focused} />,
+          tabBarIcon: ({ color, focused }) => <BellIcon color={color} size={focused ? 21 : 20} />,
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: 'Perfil',
-          tabBarIcon: ({ focused }) => <TabIcon emoji="👤" focused={focused} />,
+          tabBarIcon: ({ color, focused }) => <PersonIcon color={color} size={focused ? 21 : 20} />,
         }}
       />
     </Tabs>
   );
 }
-
-const styles = StyleSheet.create({
-  iconWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconWrapActive: {
-    backgroundColor: colors.primaryGlow,
-  },
-});

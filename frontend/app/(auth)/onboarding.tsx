@@ -1,10 +1,11 @@
 import React, { useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, FlatList, Dimensions,
-  TouchableOpacity, ListRenderItem,
+  TouchableOpacity, ListRenderItem, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { colors } from '../../src/theme/colors';
+import { fonts } from '../../src/theme/typography';
 import { Button } from '../../src/components/Button';
 
 const { width } = Dimensions.get('window');
@@ -12,24 +13,18 @@ const { width } = Dimensions.get('window');
 const slides = [
   {
     id: '1',
-    icon: '🚦',
-    accent: colors.primary,
-    title: 'Saia sempre no\ntempo certo',
-    subtitle: 'O TrafficGuard monitora sua rota e te avisa antes de você sair de casa, quando o trânsito está pesado.',
+    title: 'Saia sempre\nno tempo certo',
+    subtitle: 'O TrafficGuard acompanha sua rota e avisa antes de você sair de casa, quando o trânsito está pesado.',
   },
   {
     id: '2',
-    icon: '🛣️',
-    accent: colors.green,
     title: 'Rotas alternativas\nprontas pra você',
     subtitle: 'Quando há congestionamento, você já recebe as opções mais rápidas — sem precisar improvisar no trânsito.',
   },
   {
     id: '3',
-    icon: '🔔',
-    accent: colors.amber,
-    title: 'Notificação\ninteligente',
-    subtitle: 'Defina o horário e a tolerância. A gente só avisa quando realmente importa — nada de notificação à toa.',
+    title: 'Notificação\nsob medida',
+    subtitle: 'Defina o horário e a tolerância. Só avisamos quando realmente importa.',
   },
 ];
 
@@ -37,7 +32,6 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const slide = slides[currentIndex];
 
   const goNext = () => {
     if (currentIndex < slides.length - 1) {
@@ -50,21 +44,16 @@ export default function OnboardingScreen() {
 
   const renderItem: ListRenderItem<typeof slides[0]> = ({ item }) => (
     <View style={[styles.slide, { width }]}>
-      <View style={[styles.iconCircle, { backgroundColor: `${item.accent}18`, borderColor: `${item.accent}30` }]}>
-        <Text style={styles.icon}>{item.icon}</Text>
-      </View>
-      <Text style={[styles.title, { color: item.accent }]} numberOfLines={2}>{item.title}</Text>
+      <Text style={styles.title} numberOfLines={2}>{item.title}</Text>
       <Text style={styles.subtitle}>{item.subtitle}</Text>
     </View>
   );
 
   return (
     <View style={styles.container}>
-      {/* Skip */}
       <View style={styles.topBar}>
-        <TouchableOpacity onPress={() => router.replace('/(auth)/login')} style={styles.skipBtn}>
-          <Text style={styles.skipText}>Pular</Text>
-        </TouchableOpacity>
+        <Image source={require('../../assets/logo-mark.png')} style={styles.logo} resizeMode="contain" />
+        <Text style={styles.pageCount}>{String(currentIndex + 1).padStart(2, '0')} / 03</Text>
       </View>
 
       <FlatList
@@ -79,16 +68,13 @@ export default function OnboardingScreen() {
         style={{ flex: 1 }}
       />
 
-      {/* Dots */}
       <View style={styles.dots}>
-        {slides.map((s, i) => (
+        {slides.map((_, i) => (
           <View
             key={i}
             style={[
               styles.dot,
-              i === currentIndex
-                ? { backgroundColor: slide.accent, width: 24 }
-                : { backgroundColor: colors.border, width: 8 },
+              i === currentIndex ? styles.dotActive : styles.dotInactive,
             ]}
           />
         ))}
@@ -96,7 +82,7 @@ export default function OnboardingScreen() {
 
       <View style={styles.actions}>
         <Button
-          label={currentIndex < slides.length - 1 ? 'Próximo  →' : '🚀  Começar agora'}
+          label={currentIndex < slides.length - 1 ? 'Continuar' : 'Começar agora'}
           onPress={goNext}
           size="lg"
           style={{ width: '100%' }}
@@ -108,46 +94,44 @@ export default function OnboardingScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.darkBg },
-  topBar: { alignItems: 'flex-end', paddingHorizontal: 24, paddingTop: 56 },
-  skipBtn: { paddingVertical: 6, paddingHorizontal: 12 },
-  skipText: { color: colors.textMuted, fontSize: 14, fontWeight: '600' },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 32,
+    paddingTop: 56,
+  },
+  logo: { width: 40, height: 40 },
+  pageCount: { fontFamily: fonts.mono, fontSize: 12, color: colors.textMuted },
   slide: {
     flex: 1,
-    alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 40,
-    gap: 20,
+    gap: 22,
   },
-  iconCircle: {
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    marginBottom: 12,
-  },
-  icon: { fontSize: 64 },
   title: {
-    fontSize: 30,
-    fontWeight: '800',
-    textAlign: 'center',
-    lineHeight: 38,
-    letterSpacing: -0.5,
+    fontFamily: fonts.serifSemiBold,
+    fontSize: 34,
+    color: colors.textPrimary,
+    lineHeight: 42,
+    letterSpacing: -0.3,
   },
   subtitle: {
-    fontSize: 16,
+    fontFamily: fonts.sans,
+    fontSize: 15.5,
     color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 26,
+    lineHeight: 24,
+    maxWidth: 300,
   },
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginBottom: 20,
   },
-  dot: { height: 8, borderRadius: 4 },
-  actions: { paddingHorizontal: 24, paddingBottom: 52 },
+  dot: { height: 2, borderRadius: 0 },
+  dotActive: { width: 28, backgroundColor: colors.accent },
+  dotInactive: { width: 14, backgroundColor: colors.border },
+  actions: { paddingHorizontal: 32, paddingBottom: 52 },
 });

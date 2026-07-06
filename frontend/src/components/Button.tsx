@@ -4,6 +4,7 @@ import {
   StyleSheet, ViewStyle, View,
 } from 'react-native';
 import { colors } from '../theme/colors';
+import { fonts } from '../theme/typography';
 
 interface Props {
   label: string;
@@ -12,10 +13,12 @@ interface Props {
   loading?: boolean;
   disabled?: boolean;
   style?: ViewStyle;
-  icon?: string;
+  icon?: React.ReactNode;
   size?: 'sm' | 'md' | 'lg';
 }
 
+// Flat rectangular buttons. No radius, no shadow/glow — a solid fill for
+// primary actions, a hairline outline for secondary ones.
 export function Button({
   label, onPress, variant = 'primary', loading, disabled, style, icon, size = 'md',
 }: Props) {
@@ -26,12 +29,12 @@ export function Button({
   const textColor = isPrimary
     ? colors.textDark
     : isDanger
-      ? '#fff'
+      ? colors.textPrimary
       : isOutline
-        ? colors.primary
+        ? colors.textPrimary
         : colors.textSecondary;
 
-  const heights: Record<string, number> = { sm: 42, md: 54, lg: 60 };
+  const heights: Record<string, number> = { sm: 44, md: 52, lg: 56 };
 
   return (
     <TouchableOpacity
@@ -47,14 +50,14 @@ export function Button({
       ]}
       onPress={onPress}
       disabled={disabled || loading}
-      activeOpacity={0.82}
+      activeOpacity={0.75}
     >
       {loading ? (
         <ActivityIndicator color={textColor} size="small" />
       ) : (
         <View style={styles.inner}>
-          {icon && <Text style={styles.icon}>{icon}</Text>}
-          <Text style={[styles.label, { color: textColor }, size === 'lg' && { fontSize: 18 }]}>
+          {icon}
+          <Text style={[styles.label, { color: textColor }, size === 'lg' && { fontSize: 15.5 }]}>
             {label}
           </Text>
         </View>
@@ -65,37 +68,15 @@ export function Button({
 
 const styles = StyleSheet.create({
   base: {
-    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 28,
+    paddingHorizontal: 24,
   },
-  primary: {
-    backgroundColor: colors.primary,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.45,
-    shadowRadius: 14,
-    elevation: 10,
-  },
-  danger: {
-    backgroundColor: colors.red,
-    shadowColor: colors.red,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 10,
-    elevation: 7,
-  },
-  outline: {
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-  },
+  primary: { backgroundColor: colors.accent },
+  danger: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.red },
+  outline: { backgroundColor: 'transparent', borderWidth: 1, borderColor: colors.borderStrong },
+  ghost: { backgroundColor: 'transparent' },
   disabled: { opacity: 0.45 },
   inner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  icon: { fontSize: 20 },
-  label: { fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+  label: { fontSize: 14.5, fontFamily: fonts.sansSemiBold, letterSpacing: 0.2 },
 });
