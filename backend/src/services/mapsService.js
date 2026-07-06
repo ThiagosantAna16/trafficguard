@@ -19,7 +19,6 @@ export const mapsService = {
           countrySet: 'BR',
           limit: 6,
           language: 'pt-BR',
-          idxSet: 'PAD,Str,POI,Geo', // endereços, ruas, pontos de interesse
         },
         timeout: 8000,
       }
