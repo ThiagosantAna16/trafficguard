@@ -10,6 +10,7 @@ export interface RoutePayload {
   daysOfWeek: number[];
   alertAdvance: number;
   alertTolerance: number;
+  vehicleType?: 'car' | 'motorcycle';
 }
 
 export const routesApi = {

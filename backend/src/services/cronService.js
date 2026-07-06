@@ -108,14 +108,19 @@ export const cronService = {
 
     // Estabelece tempo base na primeira verificação (usa staticDuration — sem tráfego)
     let baseTime = route.baseTime;
-    if (!baseTime) {
-      baseTime = mainRoute.staticDurationSeconds || currentTime;
-      await db.collection('routes').doc(routeId).update({ baseTime, lastCheckedAt: new Date() });
-    } else {
-      await db.collection('routes').doc(routeId).update({ lastCheckedAt: new Date() });
-    }
+    if (!baseTime) baseTime = mainRoute.staticDurationSeconds || currentTime;
 
     const delay = currentTime - baseTime;
+    const now = new Date();
+
+    // Persiste o resultado da verificação na rota (usado pela tela Início:
+    // chegada prevista = saída + currentTime; atraso = delay)
+    await db.collection('routes').doc(routeId).update({
+      baseTime,
+      lastCheckedAt: now,
+      lastCheck: { currentTime, delay, checkedAt: now },
+    });
+
     const toleranceSeconds = route.alertTolerance * 60;
 
     // RN04 — alerta só dispara se atraso ≥ tolerância

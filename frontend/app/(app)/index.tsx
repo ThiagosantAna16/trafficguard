@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, ScrollView,
   RefreshControl, TouchableOpacity,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import dayjs from 'dayjs';
 import { colors } from '../../src/theme/colors';
@@ -29,7 +29,8 @@ export default function HomeScreen() {
     } catch {}
   }, []);
 
-  useEffect(() => { load(); }, []);
+  // Recarrega sempre que a tela ganha foco (rota nova aparece sem recarregar manual)
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -41,6 +42,15 @@ export default function HomeScreen() {
   const hour = dayjs().hour();
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
   const rId = (r: Route) => r.routeId ?? r.id ?? '';
+
+  // Chegada prevista = horário de saída + tempo com trânsito (currentTime)
+  const arrivalTime = (departureTime: string, seconds: number) => {
+    const [h, m] = departureTime.split(':').map(Number);
+    const total = h * 60 + m + Math.round(seconds / 60);
+    const hh = Math.floor(total / 60) % 24;
+    const mm = total % 60;
+    return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`;
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -123,7 +133,33 @@ export default function HomeScreen() {
               </View>
               <Text style={styles.routeAddress} numberOfLines={1}>{route.origin.address}</Text>
               <Text style={styles.routeAddress} numberOfLines={1}>{route.destination.address}</Text>
-              <Text style={styles.routeMeta}>{route.departureTime} · aviso {route.alertAdvance} min antes</Text>
+
+              <View style={styles.routeStats}>
+                <View style={styles.routeStat}>
+                  <Text style={styles.routeStatLabel}>Saída</Text>
+                  <Text style={styles.routeStatValue}>{route.departureTime}</Text>
+                </View>
+                <View style={styles.routeStat}>
+                  <Text style={styles.routeStatLabel}>Chegada prev.</Text>
+                  <Text style={styles.routeStatValue}>
+                    {route.lastCheck ? arrivalTime(route.departureTime, route.lastCheck.currentTime) : '—'}
+                  </Text>
+                </View>
+                <View style={styles.routeStat}>
+                  <Text style={styles.routeStatLabel}>Atraso</Text>
+                  {route.lastCheck ? (
+                    route.lastCheck.delay >= 60 ? (
+                      <Text style={[styles.routeStatValue, { color: route.lastCheck.delay >= 1800 ? colors.red : colors.amber }]}>
+                        +{Math.round(route.lastCheck.delay / 60)}min
+                      </Text>
+                    ) : (
+                      <Text style={[styles.routeStatValue, { color: colors.green }]}>no horário</Text>
+                    )
+                  ) : (
+                    <Text style={styles.routeStatValue}>—</Text>
+                  )}
+                </View>
+              </View>
             </TouchableOpacity>
           ))
         )}
@@ -184,4 +220,11 @@ const styles = StyleSheet.create({
   activeText: { fontFamily: fonts.sansSemiBold, fontSize: 10.5, color: colors.green, letterSpacing: 0.4 },
   routeAddress: { fontFamily: fonts.sans, fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
   routeMeta: { fontFamily: fonts.mono, fontSize: 11.5, color: colors.textMuted, marginTop: 6 },
+  routeStats: {
+    flexDirection: 'row', marginTop: 12,
+    borderTopWidth: 1, borderColor: colors.border, paddingTop: 10,
+  },
+  routeStat: { flex: 1, gap: 3 },
+  routeStatLabel: { fontFamily: fonts.sansMedium, fontSize: 9.5, color: colors.textMuted, textTransform: 'uppercase', letterSpacing: 0.4 },
+  routeStatValue: { fontFamily: fonts.mono, fontSize: 14, color: colors.textPrimary },
 });

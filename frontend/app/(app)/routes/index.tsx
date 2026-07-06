@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   RefreshControl, Switch, Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../../src/theme/colors';
 import { fonts } from '../../../src/theme/typography';
@@ -20,7 +20,8 @@ export default function RoutesScreen() {
     try { setRoutes(await routesApi.list()); } catch {}
   }, []);
 
-  useEffect(() => { load(); }, []);
+  // Recarrega ao focar — a rota recém-criada aparece sem precisar recarregar
+  useFocusEffect(useCallback(() => { load(); }, [load]));
 
   const onRefresh = async () => {
     setRefreshing(true);

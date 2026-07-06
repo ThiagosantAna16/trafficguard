@@ -32,6 +32,7 @@ export default function NewRouteScreen() {
   const [daysOfWeek, setDaysOfWeek] = useState<number[]>([1, 2, 3, 4, 5]);
   const [alertTolerance, setAlertTolerance] = useState(10);
   const [alertAdvance, setAlertAdvance] = useState(30);
+  const [vehicleType, setVehicleType] = useState<'car' | 'motorcycle'>('car');
 
   const toggleDay = (d: number) =>
     setDaysOfWeek(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d].sort());
@@ -60,6 +61,7 @@ export default function NewRouteScreen() {
         daysOfWeek,
         alertTolerance,
         alertAdvance,
+        vehicleType,
       });
       router.back();
     } catch (err: any) {
@@ -101,6 +103,20 @@ export default function NewRouteScreen() {
           <SectionHeader title="Destino" />
           <FieldLabel>Para onde você vai</FieldLabel>
           <AddressField value={destination} onSelect={setDestination} placeholder="Buscar endereço de destino..." />
+
+          <SectionHeader title="Veículo" />
+          <FieldLabel>Como você faz esse trajeto</FieldLabel>
+          <View style={styles.vehicleRow}>
+            {([['car', 'Carro'], ['motorcycle', 'Moto']] as const).map(([val, lbl]) => (
+              <TouchableOpacity
+                key={val}
+                style={[styles.vehicleBtn, vehicleType === val && styles.vehicleBtnActive]}
+                onPress={() => setVehicleType(val)}
+              >
+                <Text style={[styles.vehicleText, vehicleType === val && styles.vehicleTextActive]}>{lbl}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           <SectionHeader title="Horário de saída e dias" />
           <FieldLabel>Horário em que você sai do local de origem</FieldLabel>
@@ -200,4 +216,9 @@ const styles = StyleSheet.create({
   optionsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 18, marginBottom: 16 },
   optionText: { fontFamily: fonts.sans, fontSize: 13.5, color: colors.textSecondary, paddingBottom: 2 },
   optionTextActive: { fontFamily: fonts.sansSemiBold, color: colors.textPrimary, borderBottomWidth: 1.5, borderBottomColor: colors.accent },
+  vehicleRow: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  vehicleBtn: { flex: 1, height: 46, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.borderStrong },
+  vehicleBtnActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  vehicleText: { fontFamily: fonts.sansSemiBold, fontSize: 14, color: colors.textSecondary },
+  vehicleTextActive: { color: colors.textDark },
 });

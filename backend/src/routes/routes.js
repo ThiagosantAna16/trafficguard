@@ -25,7 +25,7 @@ export default async function routeRoutes(app) {
       return reply.status(400).send({ error: 'Limite de 3 rotas atingido' });
     }
 
-    const { name, emoji, origin, destination, departureTime, daysOfWeek, alertAdvance, alertTolerance } = request.body ?? {};
+    const { name, emoji, origin, destination, departureTime, daysOfWeek, alertAdvance, alertTolerance, vehicleType } = request.body ?? {};
 
     // RN08, RN09, RN10, RN11
     if (!name || !origin?.address || !destination?.address || !departureTime || !daysOfWeek?.length) {
@@ -44,9 +44,11 @@ export default async function routeRoutes(app) {
       daysOfWeek,              // [1,2,3,4,5]
       alertAdvance: alertAdvance ?? 30,    // 15|30|45|60
       alertTolerance: alertTolerance ?? 15, // 5|10|15|30
+      vehicleType: vehicleType === 'motorcycle' ? 'motorcycle' : 'car',
       isActive: true,
       baseTime: null,
       lastCheckedAt: null,
+      lastCheck: null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -55,7 +57,15 @@ export default async function routeRoutes(app) {
     await userRef.update({ routesCount: userSnap.data().routesCount + 1 });
     await cronService.scheduleRoute({ ...routeData, id: routeId });
 
-    return reply.status(201).send({ id: routeId, ...routeData });
+    // Verificação imediata para já popular baseTime + lastCheck (chegada/atraso na tela Início)
+    try {
+      await cronService.checkRouteNow({ ...routeData, id: routeId });
+    } catch (e) {
+      request.log.warn(`[Routes] verificação inicial falhou para ${routeId}: ${e.message}`);
+    }
+
+    const fresh = await db.collection('routes').doc(routeId).get();
+    return reply.status(201).send({ id: routeId, ...fresh.data() });
   });
 
   // Atualiza rota existente
@@ -68,14 +78,14 @@ export default async function routeRoutes(app) {
       return reply.status(404).send({ error: 'Rota não encontrada' });
     }
 
-    const allowed = ['name', 'emoji', 'origin', 'destination', 'departureTime', 'daysOfWeek', 'alertAdvance', 'alertTolerance'];
+    const allowed = ['name', 'emoji', 'origin', 'destination', 'departureTime', 'daysOfWeek', 'alertAdvance', 'alertTolerance', 'vehicleType'];
     const updates = { updatedAt: new Date() };
     for (const key of allowed) {
       if (request.body?.[key] !== undefined) updates[key] = request.body[key];
     }
 
-    // Ao mudar a rota, zera o tempo base para recalcular
-    if (updates.origin || updates.destination) updates.baseTime = null;
+    // Ao mudar rota ou veículo, zera o tempo base para recalcular
+    if (updates.origin || updates.destination || updates.vehicleType) updates.baseTime = null;
 
     await routeRef.update(updates);
     const updated = { id: routeId, ...snap.data(), ...updates };

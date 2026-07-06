@@ -47,11 +47,12 @@ export const mapsService = {
 
     const { origin, destination } = route;
     const locations = `${origin.lat},${origin.lng}:${destination.lat},${destination.lng}`;
+    const travelMode = route.vehicleType === 'motorcycle' ? 'motorcycle' : 'car';
 
     const params = {
       key: process.env.TOMTOM_API_KEY,
       traffic: true,
-      travelMode: 'car',
+      travelMode,
       routeType: 'fastest',
       computeTravelTimeFor: 'all', // inclui noTrafficTravelTimeInSeconds e trafficDelayInSeconds
       maxAlternatives: 2,
@@ -103,7 +104,8 @@ function buildCacheKey(route) {
   // Agrupa horários dentro de ±5 min (P2)
   const [h, m] = route.departureTime.split(':').map(Number);
   const slotMinutes = Math.floor((h * 60 + m) / 5) * 5;
-  return `traffic:${oLat},${oLng}:${dLat},${dLng}:${slotMinutes}`;
+  const mode = route.vehicleType === 'motorcycle' ? 'moto' : 'car';
+  return `traffic:${mode}:${oLat},${oLng}:${dLat},${dLng}:${slotMinutes}`;
 }
 
 function parseRoutesResponse(data) {

@@ -24,9 +24,15 @@ export interface Route {
   daysOfWeek: number[];        // 0=dom, 1=seg … 6=sab
   alertAdvance: number;        // minutos
   alertTolerance: number;      // minutos
+  vehicleType?: 'car' | 'motorcycle';
   isActive: boolean;
   baseTime: number | null;     // segundos
   lastCheckedAt: string | null;
+  lastCheck?: {
+    currentTime: number;       // tempo com trânsito (segundos)
+    delay: number;             // atraso vs. base (segundos)
+    checkedAt: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
