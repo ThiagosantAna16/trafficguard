@@ -2,7 +2,7 @@ import client from './client';
 import { User } from '../types';
 
 export const usersApi = {
-  upsert: (data: { name: string; email: string; fcmToken?: string }) =>
+  upsert: (data: { name?: string; email?: string; pushToken?: string }) =>
     client.post<User>('/api/v1/users/me', data).then(r => r.data),
 
   getMe: () =>

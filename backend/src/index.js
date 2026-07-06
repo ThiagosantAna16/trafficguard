@@ -2,7 +2,9 @@ import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 
+import { initDb } from './config/db.js';
 import { cronService } from './services/cronService.js';
+import authRoutes from './routes/auth.js';
 import userRoutes from './routes/users.js';
 import routeRoutes from './routes/routes.js';
 import alertRoutes from './routes/alerts.js';
@@ -21,6 +23,7 @@ const app = Fastify({
 await app.register(cors, { origin: true });
 
 // Prefixo versionado para todas as rotas da API
+app.register(authRoutes, { prefix: '/api/v1' });
 app.register(userRoutes, { prefix: '/api/v1' });
 app.register(routeRoutes, { prefix: '/api/v1' });
 app.register(alertRoutes, { prefix: '/api/v1' });
@@ -43,6 +46,9 @@ app.setErrorHandler((error, request, reply) => {
 
 const start = async () => {
   try {
+    // Garante o schema do banco antes de qualquer consulta
+    await initDb();
+
     // Carrega e agenda todas as rotas ativas ao iniciar
     await cronService.initialize();
 

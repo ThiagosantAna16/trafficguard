@@ -3,18 +3,17 @@ import {
   View, Text, TextInput, StyleSheet, TouchableOpacity,
   KeyboardAvoidingView, Platform, ScrollView, Alert,
 } from 'react-native';
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  updateProfile,
-} from 'firebase/auth';
 import { useRouter } from 'expo-router';
-import { auth } from '../../src/config/firebase';
 import { colors } from '../../src/theme/colors';
 import { Button } from '../../src/components/Button';
+import { authApi } from '../../src/api/auth';
+import { useAuthStore } from '../../src/stores/authStore';
+import { setToken as persistToken } from '../../src/lib/session';
+import { registerForPushNotificationsAsync } from '../../src/utils/notifications';
 
 export default function LoginScreen() {
   const router = useRouter();
+  const { setSession } = useAuthStore();
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -27,25 +26,27 @@ export default function LoginScreen() {
       Alert.alert('Campos obrigatórios', 'Preencha e-mail e senha.');
       return;
     }
+    if (mode === 'register' && !name) {
+      Alert.alert('Nome obrigatório', 'Informe seu nome.');
+      return;
+    }
+
     setLoading(true);
     try {
-      if (mode === 'register') {
-        if (!name) { Alert.alert('Nome obrigatório', 'Informe seu nome.'); return; }
-        const cred = await createUserWithEmailAndPassword(auth, email, password);
-        await updateProfile(cred.user, { displayName: name });
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-      }
+      // Registra o push token para enviar junto do login/cadastro (best-effort)
+      const pushToken = (await registerForPushNotificationsAsync()) ?? undefined;
+
+      const { token, user } =
+        mode === 'register'
+          ? await authApi.register({ name, email, password, pushToken })
+          : await authApi.login({ email, password, pushToken });
+
+      await persistToken(token);
+      setSession(token, user);
       router.replace('/(app)');
     } catch (err: any) {
-      const msgs: Record<string, string> = {
-        'auth/user-not-found': 'Usuário não encontrado.',
-        'auth/wrong-password': 'Senha incorreta.',
-        'auth/email-already-in-use': 'E-mail já cadastrado.',
-        'auth/weak-password': 'Senha fraca — mín. 6 caracteres.',
-        'auth/invalid-email': 'E-mail inválido.',
-      };
-      Alert.alert('Erro', msgs[err.code] ?? err.message);
+      const msg = err.response?.data?.error ?? 'Não foi possível concluir. Tente novamente.';
+      Alert.alert('Erro', msg);
     } finally {
       setLoading(false);
     }

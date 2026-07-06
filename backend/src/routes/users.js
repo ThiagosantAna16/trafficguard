@@ -1,10 +1,10 @@
 import { authMiddleware } from '../middleware/auth.js';
-import { db } from '../config/firebase.js';
+import { db } from '../config/db.js';
 
 export default async function userRoutes(app) {
-  // Cria ou atualiza perfil do usuário e FCM token após login
+  // Cria ou atualiza perfil do usuário e o push token após login
   app.post('/users/me', { preHandler: authMiddleware }, async (request, reply) => {
-    const { name, email, fcmToken } = request.body ?? {};
+    const { name, email, pushToken } = request.body ?? {};
     const userRef = db.collection('users').doc(request.userId);
     const snap = await userRef.get();
 
@@ -13,7 +13,7 @@ export default async function userRoutes(app) {
         uid: request.userId,
         name: name ?? '',
         email: email ?? '',
-        fcmToken: fcmToken ?? null,
+        pushToken: pushToken ?? null,
         plan: 'free',
         routesCount: 0,
         createdAt: new Date(),
@@ -24,7 +24,7 @@ export default async function userRoutes(app) {
 
     const updates = { updatedAt: new Date() };
     if (name) updates.name = name;
-    if (fcmToken) updates.fcmToken = fcmToken;
+    if (pushToken) updates.pushToken = pushToken;
     await userRef.update(updates);
     return { message: 'Usuário atualizado' };
   });

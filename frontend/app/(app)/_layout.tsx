@@ -12,8 +12,8 @@ function TabIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
 }
 
 export default function AppLayout() {
-  const { firebaseUid, isLoading } = useAuthStore();
-  if (!isLoading && !firebaseUid) return <Redirect href="/(auth)/login" />;
+  const { token, isLoading } = useAuthStore();
+  if (!isLoading && !token) return <Redirect href="/(auth)/login" />;
 
   return (
     <Tabs

@@ -1,8 +1,8 @@
 import cron from 'node-cron';
 import { randomUUID } from 'crypto';
-import { db } from '../config/firebase.js';
+import { db } from '../config/db.js';
 import { mapsService } from './mapsService.js';
-import { fcmService } from './fcmService.js';
+import { pushService } from './pushService.js';
 import { buildCronExpression, isWithinQuotaLimit, incrementDailyUsage } from '../utils/timeUtils.js';
 
 // Map de routeId → task do node-cron (em memória durante o runtime do servidor)
@@ -161,8 +161,8 @@ export const cronService = {
     // Salva o alerta antes de enviar (backend escreve — regra Firestore)
     await db.collection('alerts').doc(alertId).set(alertData);
 
-    // RN14 — disparo via FCM (funciona com app fechado)
-    const sent = await fcmService.sendTrafficAlert({ userId: route.userId, alert: alertData, route });
+    // RN14 — disparo via Expo Push (funciona com app fechado)
+    const sent = await pushService.sendTrafficAlert({ userId: route.userId, alert: alertData, route });
     if (sent) {
       await db.collection('alerts').doc(alertId).update({ notificationSent: true });
     }

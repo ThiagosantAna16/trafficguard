@@ -4,7 +4,7 @@ import { useAuthStore } from '../src/stores/authStore';
 import { colors } from '../src/theme/colors';
 
 export default function Index() {
-  const { firebaseUid, isLoading } = useAuthStore();
+  const { token, isLoading } = useAuthStore();
 
   if (isLoading) {
     return (
@@ -14,7 +14,7 @@ export default function Index() {
     );
   }
 
-  return firebaseUid
+  return token
     ? <Redirect href="/(app)" />
     : <Redirect href="/(auth)/onboarding" />;
 }

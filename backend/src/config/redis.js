@@ -2,16 +2,19 @@ import Redis from 'ioredis';
 
 let redis;
 
-if (process.env.UPSTASH_REDIS_URL) {
-  redis = new Redis(process.env.UPSTASH_REDIS_URL, {
+// Railway expõe REDIS_URL; Upstash usa UPSTASH_REDIS_URL — aceita ambos
+const REDIS_URL = process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL;
+
+if (REDIS_URL) {
+  redis = new Redis(REDIS_URL, {
     maxRetriesPerRequest: 3,
     lazyConnect: false,
   });
   redis.on('error', (err) => console.error('[Redis] Erro:', err.message));
-  redis.on('connect', () => console.log('[Redis] Conectado ao Upstash'));
+  redis.on('connect', () => console.log('[Redis] Conectado'));
 } else {
   // In-memory fallback for local development without Redis
-  console.warn('[Redis] UPSTASH_REDIS_URL não definido — usando cache em memória');
+  console.warn('[Redis] REDIS_URL não definido — usando cache em memória');
   const store = new Map();
   const expiry = new Map();
   redis = {

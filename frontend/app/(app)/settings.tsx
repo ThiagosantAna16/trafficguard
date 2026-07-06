@@ -3,24 +3,22 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { signOut } from 'firebase/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { auth } from '../../src/config/firebase';
 import { colors } from '../../src/theme/colors';
 import { useAuthStore } from '../../src/stores/authStore';
 import { usersApi } from '../../src/api/users';
+import { clearToken } from '../../src/lib/session';
 import { Button } from '../../src/components/Button';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const { user, setUser, setFirebaseUid } = useAuthStore();
+  const { user, clear } = useAuthStore();
   const [deletingAccount, setDeletingAccount] = useState(false);
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      setUser(null);
-      setFirebaseUid(null);
+      await clearToken();
+      clear();
       router.replace('/(auth)/login');
     } catch {
       Alert.alert('Erro', 'Não foi possível sair da conta.');
@@ -39,9 +37,8 @@ export default function SettingsScreen() {
             setDeletingAccount(true);
             try {
               await usersApi.deleteMe();
-              await signOut(auth);
-              setUser(null);
-              setFirebaseUid(null);
+              await clearToken();
+              clear();
               router.replace('/(auth)/login');
             } catch {
               Alert.alert('Erro', 'Não foi possível excluir a conta.');
@@ -118,7 +115,7 @@ export default function SettingsScreen() {
         <View style={styles.settingsGroup}>
           <SettingsRow icon="🚦" label="TrafficGuard" value="v1.0.0" />
           <View style={styles.rowDivider} />
-          <SettingsRow icon="🗺️" label="Dados de tráfego" value="Google Maps" />
+          <SettingsRow icon="🗺️" label="Dados de tráfego" value="TomTom" />
           <View style={styles.rowDivider} />
           <SettingsRow icon="⚙️" label="Backend" value="Node.js + Fastify" />
         </View>
@@ -141,7 +138,7 @@ export default function SettingsScreen() {
         </View>
 
         <Text style={styles.legal}>
-          TrafficGuard  •  Dados de tráfego por Google Maps{'\n'}
+          TrafficGuard  •  Dados de tráfego por TomTom{'\n'}
           Feito com 💙 para facilitar seu dia a dia
         </Text>
       </ScrollView>

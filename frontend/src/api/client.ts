@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { auth } from '../config/firebase';
+import { getToken } from '../lib/session';
 
 const DEV_MODE = process.env.EXPO_PUBLIC_DEV_MODE === 'true';
 
@@ -10,13 +10,12 @@ const client = axios.create({
 
 client.interceptors.request.use(async (config) => {
   if (DEV_MODE) {
-    // Backend aceita "test_<uid>" sem verificação Firebase no modo USE_SQLITE=true
+    // Backend aceita "test_<uid>" sem verificação JWT fora de produção
     config.headers.Authorization = 'Bearer test_user_dev';
     return config;
   }
-  const user = auth.currentUser;
-  if (user) {
-    const token = await user.getIdToken();
+  const token = await getToken();
+  if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;

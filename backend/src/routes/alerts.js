@@ -1,5 +1,5 @@
 import { authMiddleware } from '../middleware/auth.js';
-import { db } from '../config/firebase.js';
+import { db } from '../config/db.js';
 
 export default async function alertRoutes(app) {
   // Histórico dos últimos 7 dias (RN06 — não reenvia após o horário de saída)

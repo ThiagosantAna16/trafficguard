@@ -18,13 +18,18 @@ export function buildCronExpression(departureTime, alertAdvanceMinutes, daysOfWe
 
   const [hours, minutes] = departureTime.split(':').map(Number);
   let totalMinutes = hours * 60 + minutes - alertAdvanceMinutes;
+  let days = daysOfWeek;
 
-  // Passa para o dia anterior se negativo (raro, mas protege)
-  if (totalMinutes < 0) totalMinutes = 0;
+  // Se a verificação cai no dia anterior (ex.: saída 00:15 com aviso 30 min),
+  // desloca o horário para 23:xx e os dias da semana para o dia anterior.
+  if (totalMinutes < 0) {
+    totalMinutes += 24 * 60;
+    days = daysOfWeek.map(d => (d + 6) % 7); // 0(dom) → 6(sáb), 1(seg) → 0(dom), ...
+  }
 
   const checkHour = Math.floor(totalMinutes / 60) % 24;
   const checkMinute = totalMinutes % 60;
-  const cronDays = daysOfWeek.join(',');
+  const cronDays = [...new Set(days)].sort((a, b) => a - b).join(',');
 
   return `${checkMinute} ${checkHour} * * ${cronDays}`;
 }

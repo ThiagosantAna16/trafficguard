@@ -1,5 +1,5 @@
 import { authMiddleware } from '../middleware/auth.js';
-import { db } from '../config/firebase.js';
+import { db } from '../config/db.js';
 import { cronService } from '../services/cronService.js';
 import { randomUUID } from 'crypto';
 

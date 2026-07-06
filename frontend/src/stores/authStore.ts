@@ -3,18 +3,22 @@ import { User } from '../types';
 
 interface AuthState {
   user: User | null;
-  firebaseUid: string | null;
+  token: string | null;
   isLoading: boolean;
   setUser: (user: User | null) => void;
-  setFirebaseUid: (uid: string | null) => void;
+  setToken: (token: string | null) => void;
+  setSession: (token: string, user: User) => void;
   setLoading: (v: boolean) => void;
+  clear: () => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  firebaseUid: null,
+  token: null,
   isLoading: true,
   setUser: (user) => set({ user }),
-  setFirebaseUid: (uid) => set({ firebaseUid: uid }),
+  setToken: (token) => set({ token }),
+  setSession: (token, user) => set({ token, user }),
   setLoading: (isLoading) => set({ isLoading }),
+  clear: () => set({ user: null, token: null }),
 }));
