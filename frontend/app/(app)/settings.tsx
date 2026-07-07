@@ -114,7 +114,7 @@ export default function SettingsScreen() {
 
         <SectionTitle title="Notificações" />
         <Text style={styles.notifText}>
-          Você recebe um aviso 5 minutos antes de cada saída com o status do trânsito — normal ou com atraso. Se houver atraso grande, o aviso antecipado também é enviado.
+          Você recebe um aviso antes de cada saída — na antecedência configurada em cada rota — com o status do trânsito: normal ✅ ou com atraso ⚠️.
         </Text>
         <View style={{ marginTop: 12 }}>
           <Button

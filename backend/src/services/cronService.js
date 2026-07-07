@@ -5,8 +5,6 @@ import { mapsService } from './mapsService.js';
 import { pushService } from './pushService.js';
 import { buildCronExpression, isWithinQuotaLimit, incrementDailyUsage, secondsToHumanTime } from '../utils/timeUtils.js';
 
-const STATUS_ADVANCE_MIN = 5; // notificação de status sempre 5 min antes da saída
-
 // Map de routeId → task do node-cron (em memória durante o runtime do servidor)
 const jobs = new Map();
 
@@ -33,29 +31,18 @@ export const cronService = {
     this.unscheduleRoute(routeId);
 
     const tz = { timezone: 'America/Sao_Paulo' }; // evita bug de horário de verão
-    const tasks = [];
 
-    // (1) Status: SEMPRE notifica 5 min antes da saída (trânsito normal ou atraso)
-    const statusExpr = buildCronExpression(route.departureTime, STATUS_ADVANCE_MIN, route.daysOfWeek);
-    if (statusExpr) {
-      tasks.push(cron.schedule(statusExpr, () => this.checkRouteAndNotify(routeId, { alwaysNotify: true }), tz));
-    }
-
-    // (2) Aviso antecipado (opcional): só dispara se houver atraso, na antecedência configurada
-    if (route.alertAdvance > STATUS_ADVANCE_MIN) {
-      const warnExpr = buildCronExpression(route.departureTime, route.alertAdvance, route.daysOfWeek);
-      if (warnExpr) {
-        tasks.push(cron.schedule(warnExpr, () => this.checkRouteAndNotify(routeId, { alwaysNotify: false }), tz));
-      }
-    }
-
-    if (!tasks.length) {
+    // Uma notificação na antecedência configurada, SEMPRE com o status
+    // (trânsito normal ✅ ou atraso ⚠️).
+    const expr = buildCronExpression(route.departureTime, route.alertAdvance, route.daysOfWeek);
+    if (!expr) {
       console.warn(`[CronService] Expressão cron inválida para rota ${routeId}`);
       return;
     }
 
-    jobs.set(routeId, tasks);
-    console.log(`[CronService] Agendado: "${route.name}" (${routeId}) — ${tasks.length} job(s)`);
+    const task = cron.schedule(expr, () => this.checkRouteAndNotify(routeId, { alwaysNotify: true }), tz);
+    jobs.set(routeId, [task]);
+    console.log(`[CronService] Agendado: "${route.name}" (${routeId}) — ${route.alertAdvance} min antes da saída`);
   },
 
   /** Cancela e reagenda (usado ao editar horário/dias). */
