@@ -10,18 +10,22 @@ export const mapsService = {
    * Busca de endereços (autocomplete) via TomTom Search API.
    * Retorna resultados já normalizados como { address, lat, lng }.
    */
-  async searchAddress(query) {
+  async searchAddress(query, { lat, lon } = {}) {
+    const params = {
+      key: process.env.TOMTOM_API_KEY,
+      countrySet: 'BR',
+      limit: 6,
+      language: 'pt-BR',
+    };
+    // Viés por localização: prioriza resultados próximos de onde o usuário está
+    if (typeof lat === 'number' && typeof lon === 'number' && !isNaN(lat) && !isNaN(lon)) {
+      params.lat = lat;
+      params.lon = lon;
+    }
+
     const { data } = await axios.get(
       `${SEARCH_BASE}/${encodeURIComponent(query)}.json`,
-      {
-        params: {
-          key: process.env.TOMTOM_API_KEY,
-          countrySet: 'BR',
-          limit: 6,
-          language: 'pt-BR',
-        },
-        timeout: 8000,
-      }
+      { params, timeout: 8000 }
     );
     return (data.results ?? [])
       .map(r => ({

@@ -1,11 +1,36 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet,
 } from 'react-native';
+import * as Location from 'expo-location';
 import { colors } from '../theme/colors';
 import { fonts } from '../theme/typography';
-import { geocodeApi, GeoResult } from '../api/geocode';
+import { geocodeApi, GeoResult, Coords } from '../api/geocode';
 import { SearchIcon, CheckIcon } from './Icon';
+
+// Localização atual do usuário (obtida uma vez), para priorizar endereços próximos.
+// Compartilhada entre instâncias do campo (origem/destino) para não pedir 2x.
+let cachedCoords: Coords | null = null;
+let coordsPromise: Promise<Coords | null> | null = null;
+
+async function getUserCoords(): Promise<Coords | null> {
+  if (cachedCoords) return cachedCoords;
+  if (coordsPromise) return coordsPromise;
+  coordsPromise = (async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return null;
+      const pos = await Location.getLastKnownPositionAsync()
+        ?? await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low });
+      if (!pos) return null;
+      cachedCoords = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+      return cachedCoords;
+    } catch {
+      return null;
+    }
+  })();
+  return coordsPromise;
+}
 
 interface Props {
   value: GeoResult | null;
@@ -22,6 +47,12 @@ export function AddressField({ value, onSelect, placeholder }: Props) {
   const [editing, setEditing] = useState(!value);
   const [focused, setFocused] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const coords = useRef<Coords | null>(cachedCoords);
+
+  // Solicita a localização uma vez (para priorizar endereços próximos)
+  useEffect(() => {
+    getUserCoords().then(c => { coords.current = c; });
+  }, []);
 
   const onChange = (text: string) => {
     setQuery(text);
@@ -29,7 +60,7 @@ export function AddressField({ value, onSelect, placeholder }: Props) {
     if (text.trim().length < 3) { setResults([]); setLoading(false); return; }
     setLoading(true);
     timer.current = setTimeout(async () => {
-      try { setResults(await geocodeApi.search(text)); }
+      try { setResults(await geocodeApi.search(text, coords.current)); }
       catch { setResults([]); }
       finally { setLoading(false); }
     }, 400);

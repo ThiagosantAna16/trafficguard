@@ -43,7 +43,13 @@
           "androidCollapsedTitle": "TrafficGuard"
         }
       ],
-      "expo-font"
+      "expo-font",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "O TrafficGuard usa sua localização para sugerir endereços próximos ao cadastrar rotas."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true
