@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "902677352723",
+    "project_id": "trafficguard-442e4",
+    "storage_bucket": "trafficguard-442e4.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:902677352723:android:c2e24bde026f05a2744ae6",
+        "android_client_info": {
+          "package_name": "com.trafficguard.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBkGu9nJQ8SSncjTGhzzRnWnoA_Tn1BHe8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

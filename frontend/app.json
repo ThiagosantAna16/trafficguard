@@ -18,6 +18,7 @@
         "backgroundColor": "#0F172A"
       },
       "package": "com.trafficguard.app",
+      "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.RECEIVE_BOOT_COMPLETED",
