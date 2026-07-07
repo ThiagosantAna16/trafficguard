@@ -1,35 +1,25 @@
 import axios from 'axios';
 import { db, USE_LOCAL } from '../config/db.js';
-import { secondsToHumanTime } from '../utils/timeUtils.js';
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 export const pushService = {
   /**
-   * Envia o alerta de trânsito via Expo Push API (funciona com o app fechado).
-   * Substitui o FCM — o token é o Expo Push Token gerado no app.
+   * Envia uma notificação push para o usuário via Expo Push API.
+   * Funciona com o app fechado. No modo local (sem token) apenas loga.
    */
-  async sendTrafficAlert({ userId, alert, route }) {
+  async sendToUser(userId, { title, body, data = {} }) {
     const userSnap = await db.collection('users').doc(userId).get();
     if (!userSnap.exists) return false;
 
     const { pushToken } = userSnap.data();
 
-    const delayMin = Math.round(alert.delay / 60);
-    const bestAlt = alert.alternatives[0];
-    const altTimeStr = secondsToHumanTime(bestAlt.duration);
-
-    const severity = delayMin >= 30 ? '🚨' : '⚠️';
-    const title = `${severity} Saída para ${route.name} em ${route.alertAdvance} min`;
-    const body = `Trânsito com +${delayMin} min de atraso. Alternativa: ${bestAlt.description} — ${altTimeStr}.`;
-
-    // Sem token (ex.: modo local/dev): apenas registra no console
     if (!pushToken) {
       if (USE_LOCAL) {
         console.log('[Push MOCK] ─────────────────────────────');
         console.log(`[Push MOCK] Título : ${title}`);
         console.log(`[Push MOCK] Corpo  : ${body}`);
-        console.log(`[Push MOCK] UserId : ${userId} | AlertId: ${alert.alertId}`);
+        console.log(`[Push MOCK] UserId : ${userId}`);
         console.log('[Push MOCK] ─────────────────────────────');
         return true;
       }
@@ -44,23 +34,16 @@ export const pushService = {
       sound: 'default',
       priority: 'high',
       channelId: 'traffic_alerts',
-      data: {
-        type: 'TRAFFIC_ALERT',
-        alertId: alert.alertId,
-        routeId: route.routeId ?? route.id,
-        routeName: route.name,
-        delay: alert.delay,
-      },
+      data,
     };
 
     try {
-      const { data } = await axios.post(EXPO_PUSH_URL, message, {
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      const { data: resp } = await axios.post(EXPO_PUSH_URL, message, {
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         timeout: 10000,
       });
 
-      const ticket = data?.data;
-      // Token inválido/desregistrado → limpa do usuário
+      const ticket = resp?.data;
       if (ticket?.status === 'error' && ticket?.details?.error === 'DeviceNotRegistered') {
         await db.collection('users').doc(userId).update({ pushToken: null });
         console.warn(`[Push] Token inválido para ${userId} — removido`);

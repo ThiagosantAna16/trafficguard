@@ -9,6 +9,7 @@ import userRoutes from './routes/users.js';
 import routeRoutes from './routes/routes.js';
 import alertRoutes from './routes/alerts.js';
 import geocodeRoutes from './routes/geocode.js';
+import pushRoutes from './routes/push.js';
 
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -29,6 +30,7 @@ app.register(userRoutes, { prefix: '/api/v1' });
 app.register(routeRoutes, { prefix: '/api/v1' });
 app.register(alertRoutes, { prefix: '/api/v1' });
 app.register(geocodeRoutes, { prefix: '/api/v1' });
+app.register(pushRoutes, { prefix: '/api/v1' });
 
 // Health check para o Railway
 app.get('/health', async () => ({

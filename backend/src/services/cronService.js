@@ -3,7 +3,9 @@ import { randomUUID } from 'crypto';
 import { db } from '../config/db.js';
 import { mapsService } from './mapsService.js';
 import { pushService } from './pushService.js';
-import { buildCronExpression, isWithinQuotaLimit, incrementDailyUsage } from '../utils/timeUtils.js';
+import { buildCronExpression, isWithinQuotaLimit, incrementDailyUsage, secondsToHumanTime } from '../utils/timeUtils.js';
+
+const STATUS_ADVANCE_MIN = 5; // notificação de status sempre 5 min antes da saída
 
 // Map de routeId → task do node-cron (em memória durante o runtime do servidor)
 const jobs = new Map();
@@ -23,30 +25,37 @@ export const cronService = {
     console.log(`[CronService] ${count} rota(s) agendada(s)`);
   },
 
-  /** Cria o cron job para uma rota. Substitui se já existir. */
+  /** Cria os cron jobs para uma rota. Substitui se já existir. */
   async scheduleRoute(route) {
     const routeId = route.routeId ?? route.id;
     if (!route.isActive) return;
 
     this.unscheduleRoute(routeId);
 
-    const cronExpr = buildCronExpression(
-      route.departureTime,
-      route.alertAdvance,
-      route.daysOfWeek
-    );
-    if (!cronExpr) {
+    const tz = { timezone: 'America/Sao_Paulo' }; // evita bug de horário de verão
+    const tasks = [];
+
+    // (1) Status: SEMPRE notifica 5 min antes da saída (trânsito normal ou atraso)
+    const statusExpr = buildCronExpression(route.departureTime, STATUS_ADVANCE_MIN, route.daysOfWeek);
+    if (statusExpr) {
+      tasks.push(cron.schedule(statusExpr, () => this.checkRouteAndNotify(routeId, { alwaysNotify: true }), tz));
+    }
+
+    // (2) Aviso antecipado (opcional): só dispara se houver atraso, na antecedência configurada
+    if (route.alertAdvance > STATUS_ADVANCE_MIN) {
+      const warnExpr = buildCronExpression(route.departureTime, route.alertAdvance, route.daysOfWeek);
+      if (warnExpr) {
+        tasks.push(cron.schedule(warnExpr, () => this.checkRouteAndNotify(routeId, { alwaysNotify: false }), tz));
+      }
+    }
+
+    if (!tasks.length) {
       console.warn(`[CronService] Expressão cron inválida para rota ${routeId}`);
       return;
     }
 
-    // node-cron usa America/Sao_Paulo diretamente para evitar bug de horário de verão
-    const task = cron.schedule(cronExpr, async () => {
-      await this.checkRouteAndNotify(routeId);
-    }, { timezone: 'America/Sao_Paulo' });
-
-    jobs.set(routeId, task);
-    console.log(`[CronService] Agendado: "${route.name}" (${routeId}) — cron: ${cronExpr}`);
+    jobs.set(routeId, tasks);
+    console.log(`[CronService] Agendado: "${route.name}" (${routeId}) — ${tasks.length} job(s)`);
   },
 
   /** Cancela e reagenda (usado ao editar horário/dias). */
@@ -56,18 +65,18 @@ export const cronService = {
     if (route.isActive) await this.scheduleRoute(route);
   },
 
-  /** Para e remove o cron job de uma rota. */
+  /** Para e remove os cron jobs de uma rota. */
   unscheduleRoute(routeId) {
-    const task = jobs.get(routeId);
-    if (task) {
-      task.stop();
+    const tasks = jobs.get(routeId);
+    if (tasks) {
+      tasks.forEach(t => t.stop());
       jobs.delete(routeId);
     }
   },
 
-  /** Verificação manual imediata (botão "Verificar agora" da T07). */
+  /** Verificação manual imediata (botão "Verificar agora") — sempre informa o status. */
   async checkRouteNow(route) {
-    return this.checkRouteAndNotify(route.routeId ?? route.id);
+    return this.checkRouteAndNotify(route.routeId ?? route.id, { alwaysNotify: true });
   },
 
   /**
@@ -75,7 +84,7 @@ export const cronService = {
    * Executado pelo cron job ou manualmente.
    * RN01–RN06, RN13, RN14.
    */
-  async checkRouteAndNotify(routeId) {
+  async checkRouteAndNotify(routeId, { alwaysNotify = false } = {}) {
     const snap = await db.collection('routes').doc(routeId).get();
     if (!snap.exists) return { notified: false, reason: 'route_not_found' };
 
@@ -122,14 +131,22 @@ export const cronService = {
     });
 
     const toleranceSeconds = route.alertTolerance * 60;
+    const delayMin = Math.round(delay / 60);
 
-    // RN04 — alerta só dispara se atraso ≥ tolerância
+    // Trânsito normal (atraso < tolerância): só notifica quando alwaysNotify (status 5 min antes)
     if (delay < toleranceSeconds) {
-      console.log(`[CronService] "${route.name}": trânsito normal (atraso: ${Math.round(delay / 60)} min)`);
-      return { notified: false, reason: 'traffic_normal', delaySeconds: delay };
+      console.log(`[CronService] "${route.name}": trânsito normal (atraso: ${delayMin} min)`);
+      if (alwaysNotify) {
+        await pushService.sendToUser(route.userId, {
+          title: `✅ ${route.name}: trânsito normal`,
+          body: `Saída ${route.departureTime} · trajeto ~${secondsToHumanTime(currentTime)}. Pode sair no horário.`,
+          data: { type: 'TRAFFIC_OK', routeId, routeName: route.name, departureTime: route.departureTime },
+        });
+      }
+      return { notified: alwaysNotify, reason: 'traffic_normal', delaySeconds: delay };
     }
 
-    // Monta alternativas: rotas 1..N da resposta (rota 0 é a congestionada)
+    // Há atraso ≥ tolerância → monta alternativas: rotas 1..N (rota 0 é a congestionada)
     const alternatives = trafficData.routes.slice(1).map(r => ({
       description: r.description,
       duration: r.durationSeconds,
@@ -163,16 +180,20 @@ export const cronService = {
       openedByUser: false,
     };
 
-    // Salva o alerta antes de enviar (backend escreve — regra Firestore)
+    // Salva o alerta antes de enviar
     await db.collection('alerts').doc(alertId).set(alertData);
 
-    // RN14 — disparo via Expo Push (funciona com app fechado)
-    const sent = await pushService.sendTrafficAlert({ userId: route.userId, alert: alertData, route });
+    const bestAlt = alternatives[0];
+    const sent = await pushService.sendToUser(route.userId, {
+      title: `${delayMin >= 30 ? '🚨' : '⚠️'} ${route.name}: +${delayMin} min de atraso`,
+      body: `Saída ${route.departureTime}. Alternativa mais rápida: ${bestAlt.description} — ${secondsToHumanTime(bestAlt.duration)}.`,
+      data: { type: 'TRAFFIC_ALERT', alertId, routeId, routeName: route.name, delay },
+    });
     if (sent) {
       await db.collection('alerts').doc(alertId).update({ notificationSent: true });
     }
 
-    console.log(`[CronService] "${route.name}": ALERTA disparado (atraso: ${Math.round(delay / 60)} min)`);
+    console.log(`[CronService] "${route.name}": ALERTA disparado (atraso: ${delayMin} min)`);
     return { notified: true, alertId, delaySeconds: delay, alternatives };
   },
 };

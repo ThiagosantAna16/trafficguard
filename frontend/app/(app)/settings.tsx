@@ -8,14 +8,33 @@ import { colors } from '../../src/theme/colors';
 import { fonts } from '../../src/theme/typography';
 import { useAuthStore } from '../../src/stores/authStore';
 import { usersApi } from '../../src/api/users';
+import { pushApi } from '../../src/api/push';
 import { clearToken } from '../../src/lib/session';
 import { Button } from '../../src/components/Button';
-import { LogOutIcon } from '../../src/components/Icon';
+import { LogOutIcon, BellIcon } from '../../src/components/Icon';
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { user, clear, setUser } = useAuthStore();
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const [testingPush, setTestingPush] = useState(false);
+
+  const handleTestPush = async () => {
+    setTestingPush(true);
+    try {
+      const { sent } = await pushApi.sendTest();
+      Alert.alert(
+        sent ? 'Notificação enviada' : 'Sem dispositivo registrado',
+        sent
+          ? 'Deve aparecer no seu celular em alguns segundos.'
+          : 'Nenhum token de push registrado. Abra o app no celular (APK), faça login e permita notificações.'
+      );
+    } catch {
+      Alert.alert('Erro', 'Não foi possível enviar a notificação de teste.');
+    } finally {
+      setTestingPush(false);
+    }
+  };
 
   // Reatualiza o perfil sempre que a aba ganha foco (ex.: após criar/excluir rota)
   useFocusEffect(
@@ -95,8 +114,17 @@ export default function SettingsScreen() {
 
         <SectionTitle title="Notificações" />
         <Text style={styles.notifText}>
-          Os alertas são enviados automaticamente pelo servidor, no horário configurado em cada rota — quando o trânsito superar a tolerância definida.
+          Você recebe um aviso 5 minutos antes de cada saída com o status do trânsito — normal ou com atraso. Se houver atraso grande, o aviso antecipado também é enviado.
         </Text>
+        <View style={{ marginTop: 12 }}>
+          <Button
+            label={testingPush ? 'Enviando...' : 'Enviar notificação de teste'}
+            icon={<BellIcon color={colors.textPrimary} size={16} />}
+            onPress={handleTestPush}
+            loading={testingPush}
+            variant="outline"
+          />
+        </View>
 
         <SectionTitle title="Sobre" />
         <View style={styles.settingsGroup}>
