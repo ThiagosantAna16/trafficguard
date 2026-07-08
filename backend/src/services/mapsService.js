@@ -123,6 +123,7 @@ export const mapsService = {
         staticDurationSeconds: s.noTrafficTravelTimeInSeconds ?? s.travelTimeInSeconds ?? 0,
         distanceMeters: s.lengthInMeters ?? 0,
         via: mainRoads(r),
+        roads: orderedRoads(r),
         points: downsamplePoints(pts, 25),
       };
     });
@@ -196,6 +197,17 @@ function mainRoads(route) {
     .slice(0, 2)
     .map(([name]) => name);
   return top.length ? `via ${top.join(' · ')}` : '';
+}
+
+// Sequência (em ordem) das ruas por onde o trajeto passa, sem repetir consecutivas.
+function orderedRoads(route) {
+  const instr = route.guidance?.instructions ?? [];
+  const seq = [];
+  for (const it of instr) {
+    const name = it.roadNumbers?.[0] || it.street;
+    if (name && seq[seq.length - 1] !== name) seq.push(name);
+  }
+  return seq.slice(0, 12);
 }
 
 // Reduz a geometria a no máximo `max` pontos (mantém início/fim), para caber

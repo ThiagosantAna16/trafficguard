@@ -29,10 +29,8 @@ function buildHtml(routes: { points: LatLng[] }[], selected: number): string {
   var routes = ${JSON.stringify(data)};
   var palette = ${JSON.stringify(ROUTE_COLORS)};
   var map = L.map('map',{zoomControl:true,attributionControl:false,dragging:true,touchZoom:true,scrollWheelZoom:false,doubleClickZoom:true,boxZoom:false,keyboard:false});
-  // Basemap CARTO Voyager: detalhado (ruas nomeadas, POIs, referências), grátis
-  L.tileLayer('https://{s}.basemap.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
-    subdomains:'abcd', maxZoom:20, detectRetina:true
-  }).addTo(map);
+  // OpenStreetMap padrão: mapa detalhado (ruas, nomes, POIs, referências), grátis
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
   var lines = routes.map(function(pts,i){
     var c = palette[i%palette.length];
     // halo branco por baixo p/ contraste sobre o mapa claro + linha colorida por cima
@@ -80,7 +78,7 @@ export function RouteMap({ routes, selectedIndex, height = 200 }: Props) {
           androidLayerType="hardware"
         />
       </View>
-      <Text style={styles.attribution}>Mapa © OpenStreetMap · CARTO</Text>
+      <Text style={styles.attribution}>Mapa © OpenStreetMap</Text>
     </View>
   );
 }
