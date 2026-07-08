@@ -19,13 +19,16 @@ function buildHtml(routes: { points: LatLng[] }[], selected: number): string {
   return `<!DOCTYPE html><html><head>
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<style>html,body,#map{margin:0;padding:0;height:100%;width:100%;background:#0A0E13}</style>
+<style>
+  html,body,#map{margin:0;padding:0;height:100%;width:100%;background:#0A0E13}
+  .leaflet-control-zoom a{width:34px;height:34px;line-height:34px;font-size:20px}
+</style>
 </head><body><div id="map"></div>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
   var routes = ${JSON.stringify(data)};
   var palette = ${JSON.stringify(ROUTE_COLORS)};
-  var map = L.map('map',{zoomControl:false,attributionControl:false,dragging:false,touchZoom:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,tap:false});
+  var map = L.map('map',{zoomControl:true,attributionControl:false,dragging:true,touchZoom:true,scrollWheelZoom:false,doubleClickZoom:true,boxZoom:false,keyboard:false});
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
   var lines = routes.map(function(pts,i){
     return L.polyline(pts,{color:palette[i%palette.length],weight:3,opacity:0.5}).addTo(map);
@@ -67,6 +70,7 @@ export function RouteMap({ routes, selectedIndex, height = 200 }: Props) {
           source={{ html }}
           style={styles.web}
           scrollEnabled={false}
+          nestedScrollEnabled
           androidLayerType="hardware"
         />
       </View>
