@@ -40,7 +40,7 @@ export const cronService = {
       return;
     }
 
-    const task = cron.schedule(expr, () => this.checkRouteAndNotify(routeId, { alwaysNotify: true }), tz);
+    const task = cron.schedule(expr, () => this.checkRouteAndNotify(routeId, { alwaysNotify: true, record: true }), tz);
     jobs.set(routeId, [task]);
     console.log(`[CronService] Agendado: "${route.name}" (${routeId}) — ${route.alertAdvance} min antes da saída`);
   },
@@ -61,9 +61,13 @@ export const cronService = {
     }
   },
 
-  /** Verificação manual imediata (botão "Verificar agora") — sempre informa o status. */
+  /**
+   * Verificação manual/inicial (botão "Verificar agora" e ao criar a rota):
+   * calcula e devolve o status para a tela, mas NÃO envia push e NÃO grava
+   * no histórico (só as verificações agendadas alimentam a média de 7 dias).
+   */
   async checkRouteNow(route) {
-    return this.checkRouteAndNotify(route.routeId ?? route.id, { alwaysNotify: true });
+    return this.checkRouteAndNotify(route.routeId ?? route.id, { silent: true, record: false });
   },
 
   /**
@@ -71,7 +75,7 @@ export const cronService = {
    * Executado pelo cron job ou manualmente.
    * RN01–RN06, RN13, RN14.
    */
-  async checkRouteAndNotify(routeId, { alwaysNotify = false } = {}) {
+  async checkRouteAndNotify(routeId, { alwaysNotify = false, silent = false, record = false } = {}) {
     const snap = await db.collection('routes').doc(routeId).get();
     if (!snap.exists) return { notified: false, reason: 'route_not_found' };
 
@@ -100,56 +104,67 @@ export const cronService = {
     }
 
     const mainRoute = trafficData.routes[0];
-    const currentTime = mainRoute.durationSeconds;
-
-    // Estabelece tempo base na primeira verificação (usa staticDuration — sem tráfego)
-    let baseTime = route.baseTime;
-    if (!baseTime) baseTime = mainRoute.staticDurationSeconds || currentTime;
-
-    const delay = currentTime - baseTime;
+    const currentTime = mainRoute.durationSeconds; // tempo do trajeto HOJE (com trânsito)
     const now = new Date();
 
-    // Persiste o resultado da verificação na rota (usado pela tela Início:
-    // chegada prevista = saída + currentTime; atraso = delay)
-    await db.collection('routes').doc(routeId).update({
-      baseTime,
-      lastCheckedAt: now,
-      lastCheck: { currentTime, delay, checkedAt: now },
-    });
+    // Base de comparação = MÉDIA dos tempos medidos nos últimos 7 dias para este
+    // trajeto. Enquanto não houver histórico, usa o tempo sem trânsito como base
+    // provisória.
+    const cutoff = Date.now() - 7 * 24 * 3600 * 1000;
+    const priorHistory = (Array.isArray(route.history) ? route.history : [])
+      .filter(h => Date.parse(h.at) >= cutoff);
 
+    const baseTime = priorHistory.length
+      ? Math.round(priorHistory.reduce((sum, h) => sum + h.t, 0) / priorHistory.length)
+      : (mainRoute.staticDurationSeconds || currentTime);
+
+    const delay = currentTime - baseTime;
     const toleranceSeconds = route.alertTolerance * 60;
     const delayMin = Math.round(delay / 60);
 
-    // Trânsito normal (atraso < tolerância): só notifica quando alwaysNotify (status 5 min antes)
+    // Persiste o resultado (tela Início) e, se for verificação agendada, grava a
+    // medição de hoje no histórico (1 por dia) para compor a média dos 7 dias.
+    const updates = {
+      baseTime,
+      lastCheckedAt: now,
+      lastCheck: { currentTime, delay, checkedAt: now },
+    };
+    if (record) {
+      const today = now.toISOString().slice(0, 10);
+      const kept = (Array.isArray(route.history) ? route.history : [])
+        .filter(h => Date.parse(h.at) >= cutoff && h.at.slice(0, 10) !== today);
+      updates.history = [...kept, { at: now.toISOString(), t: currentTime }].slice(-14);
+    }
+    await db.collection('routes').doc(routeId).update(updates);
+
+    // Trânsito normal (dentro da média): notifica só na verificação agendada
     if (delay < toleranceSeconds) {
-      console.log(`[CronService] "${route.name}": trânsito normal (atraso: ${delayMin} min)`);
-      if (alwaysNotify) {
+      console.log(`[CronService] "${route.name}": normal (hoje ${Math.round(currentTime / 60)}min vs média ${Math.round(baseTime / 60)}min)`);
+      if (alwaysNotify && !silent) {
         await pushService.sendToUser(route.userId, {
           title: `✅ ${route.name}: trânsito normal`,
-          body: `Saída ${route.departureTime} · trajeto ~${secondsToHumanTime(currentTime)}. Pode sair no horário.`,
+          body: `Saída ${route.departureTime} · trajeto ~${secondsToHumanTime(currentTime)} (na média). Pode sair no horário.`,
           data: { type: 'TRAFFIC_OK', routeId, routeName: route.name, departureTime: route.departureTime },
         });
       }
-      return { notified: alwaysNotify, reason: 'traffic_normal', delaySeconds: delay };
+      return { notified: alwaysNotify && !silent, reason: 'traffic_normal', delaySeconds: delay };
     }
 
-    // Há atraso ≥ tolerância → monta alternativas: rotas 1..N (rota 0 é a congestionada)
+    // Atraso acima da média + tolerância → monta alternativas
     const alternatives = trafficData.routes.slice(1).map(r => ({
       description: r.description,
       duration: r.durationSeconds,
       distanceM: r.distanceMeters,
     }));
-
-    // Se não houver alternativa, informa a rota original com a demora
     if (!alternatives.length) {
-      alternatives.push({
-        description: mainRoute.description,
-        duration: currentTime,
-        distanceM: mainRoute.distanceMeters,
-      });
+      alternatives.push({ description: mainRoute.description, duration: currentTime, distanceM: mainRoute.distanceMeters });
     }
-
     alternatives.sort((a, b) => a.duration - b.duration);
+
+    // Modo silencioso (verificação manual/inicial): devolve os dados sem push nem alerta
+    if (silent) {
+      return { notified: false, reason: 'delay', delaySeconds: delay, baseSeconds: baseTime, currentSeconds: currentTime, alternatives };
+    }
 
     const alertId = randomUUID();
     const alertData = {
@@ -158,29 +173,27 @@ export const cronService = {
       routeId,
       routeName: route.name,
       triggeredAt: new Date(),
-      baseTime,
-      currentTime,
+      baseTime,          // média dos últimos 7 dias
+      currentTime,       // tempo de hoje
       delay,
-      incidentType: null, // futuramente: extrair de travelAdvisory
+      incidentType: null,
       alternatives,
       notificationSent: false,
       openedByUser: false,
     };
-
-    // Salva o alerta antes de enviar
     await db.collection('alerts').doc(alertId).set(alertData);
 
     const bestAlt = alternatives[0];
     const sent = await pushService.sendToUser(route.userId, {
-      title: `${delayMin >= 30 ? '🚨' : '⚠️'} ${route.name}: +${delayMin} min de atraso`,
-      body: `Saída ${route.departureTime}. Alternativa mais rápida: ${bestAlt.description} — ${secondsToHumanTime(bestAlt.duration)}.`,
+      title: `${delayMin >= 30 ? '🚨' : '⚠️'} ${route.name}: +${delayMin} min acima do normal`,
+      body: `Hoje ~${secondsToHumanTime(currentTime)} vs média ~${secondsToHumanTime(baseTime)}. Alternativa: ${bestAlt.description} — ${secondsToHumanTime(bestAlt.duration)}.`,
       data: { type: 'TRAFFIC_ALERT', alertId, routeId, routeName: route.name, delay },
     });
     if (sent) {
       await db.collection('alerts').doc(alertId).update({ notificationSent: true });
     }
 
-    console.log(`[CronService] "${route.name}": ALERTA disparado (atraso: ${delayMin} min)`);
+    console.log(`[CronService] "${route.name}": ALERTA (hoje ${Math.round(currentTime / 60)}min vs média ${Math.round(baseTime / 60)}min, +${delayMin}min)`);
     return { notified: true, alertId, delaySeconds: delay, alternatives };
   },
 };

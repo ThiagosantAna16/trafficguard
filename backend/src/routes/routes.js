@@ -64,6 +64,7 @@ export default async function routeRoutes(app) {
       routePoints: Array.isArray(routePoints) && routePoints.length >= 2 ? routePoints : null,
       isActive: true,
       baseTime: null,
+      history: null,
       lastCheckedAt: null,
       lastCheck: null,
       createdAt: new Date(),
