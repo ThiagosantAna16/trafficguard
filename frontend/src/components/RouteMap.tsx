@@ -29,9 +29,15 @@ function buildHtml(routes: { points: LatLng[] }[], selected: number): string {
   var routes = ${JSON.stringify(data)};
   var palette = ${JSON.stringify(ROUTE_COLORS)};
   var map = L.map('map',{zoomControl:true,attributionControl:false,dragging:true,touchZoom:true,scrollWheelZoom:false,doubleClickZoom:true,boxZoom:false,keyboard:false});
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
+  // Basemap escuro e clean do CARTO (grátis, sem chave) — combina com o app
+  L.tileLayer('https://{s}.basemap.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+    subdomains:'abcd', maxZoom:20, detectRetina:true
+  }).addTo(map);
   var lines = routes.map(function(pts,i){
-    return L.polyline(pts,{color:palette[i%palette.length],weight:3,opacity:0.5}).addTo(map);
+    var c = palette[i%palette.length];
+    // halo escuro por baixo p/ contraste + linha colorida por cima
+    L.polyline(pts,{color:'#05070A',weight:7,opacity:0.9,lineJoin:'round',lineCap:'round'}).addTo(map);
+    return L.polyline(pts,{color:c,weight:3.5,opacity:0.65,lineJoin:'round',lineCap:'round'}).addTo(map);
   });
   var all=[]; routes.forEach(function(p){ all=all.concat(p); });
   if(all.length){ map.fitBounds(L.latLngBounds(all).pad(0.18)); }
@@ -74,7 +80,7 @@ export function RouteMap({ routes, selectedIndex, height = 200 }: Props) {
           androidLayerType="hardware"
         />
       </View>
-      <Text style={styles.attribution}>Mapa © OpenStreetMap</Text>
+      <Text style={styles.attribution}>Mapa © OpenStreetMap · CARTO</Text>
     </View>
   );
 }
