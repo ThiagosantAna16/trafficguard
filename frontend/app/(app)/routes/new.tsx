@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, TextInput, StyleSheet, ScrollView,
-  TouchableOpacity, Alert, KeyboardAvoidingView, Platform,
+  TouchableOpacity, Alert, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '../../../src/theme/colors';
 import { fonts } from '../../../src/theme/typography';
-import { routesApi } from '../../../src/api/routes';
+import { routesApi, RouteOption } from '../../../src/api/routes';
 import { GeoResult } from '../../../src/api/geocode';
 import { Button } from '../../../src/components/Button';
 import { AddressField } from '../../../src/components/AddressField';
 import { CheckIcon } from '../../../src/components/Icon';
+
+const fmtKm = (m: number) => `${(m / 1000).toFixed(1).replace('.', ',')} km`;
+const fmtMin = (s: number) => `~${Math.round(s / 60)} min`;
 
 const DAYS = [
   { label: 'D', value: 0 }, { label: 'S', value: 1 }, { label: 'T', value: 2 },
@@ -34,6 +37,33 @@ export default function NewRouteScreen() {
   const [alertAdvance, setAlertAdvance] = useState(30);
   const [vehicleType, setVehicleType] = useState<'car' | 'motorcycle'>('car');
 
+  const [options, setOptions] = useState<RouteOption[]>([]);
+  const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
+  const [loadingOptions, setLoadingOptions] = useState(false);
+  const reqId = useRef(0);
+
+  // Ao ter origem + destino (ou trocar veículo), busca os caminhos disponíveis
+  useEffect(() => {
+    if (!origin || !destination) { setOptions([]); setSelectedIdx(null); return; }
+    const id = ++reqId.current;
+    setLoadingOptions(true);
+    setOptions([]);
+    setSelectedIdx(null);
+    routesApi
+      .getOptions({
+        origin: { lat: origin.lat, lng: origin.lng },
+        destination: { lat: destination.lat, lng: destination.lng },
+        vehicleType,
+      })
+      .then(opts => {
+        if (id !== reqId.current) return; // ignora respostas antigas
+        setOptions(opts);
+        if (opts.length) setSelectedIdx(0); // pré-seleciona o mais rápido
+      })
+      .catch(() => { if (id === reqId.current) setOptions([]); })
+      .finally(() => { if (id === reqId.current) setLoadingOptions(false); });
+  }, [origin, destination, vehicleType]);
+
   const toggleDay = (d: number) =>
     setDaysOfWeek(prev => prev.includes(d) ? prev.filter(x => x !== d) : [...prev, d].sort());
 
@@ -50,6 +80,10 @@ export default function NewRouteScreen() {
       Alert.alert('Horário inválido', 'Use o formato HH:MM, ex: 07:30');
       return;
     }
+    if (selectedIdx == null || !options[selectedIdx]) {
+      Alert.alert('Escolha o caminho', 'Selecione qual caminho você faz para chegar ao destino.');
+      return;
+    }
 
     setLoading(true);
     try {
@@ -62,6 +96,7 @@ export default function NewRouteScreen() {
         alertTolerance,
         alertAdvance,
         vehicleType,
+        routePoints: options[selectedIdx].points,
       });
       router.back();
     } catch (err: any) {
@@ -117,6 +152,45 @@ export default function NewRouteScreen() {
               </TouchableOpacity>
             ))}
           </View>
+
+          {(origin && destination) && (
+            <>
+              <SectionHeader title="Caminho" />
+              <FieldLabel>Qual caminho você faz até o destino</FieldLabel>
+              {loadingOptions ? (
+                <View style={styles.optionsLoading}>
+                  <ActivityIndicator color={colors.accent} />
+                  <Text style={styles.optionsLoadingText}>Buscando caminhos disponíveis...</Text>
+                </View>
+              ) : options.length === 0 ? (
+                <Text style={styles.optionsEmpty}>Nenhum caminho encontrado. Verifique os endereços.</Text>
+              ) : (
+                options.map((opt, i) => {
+                  const active = selectedIdx === i;
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      style={[styles.pathCard, active && styles.pathCardActive]}
+                      onPress={() => setSelectedIdx(i)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={[styles.pathRadio, active && styles.pathRadioActive]}>
+                        {active && <View style={styles.pathRadioDot} />}
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.pathTitle}>
+                          Caminho {i + 1}{i === 0 ? ' · mais rápido' : ''}
+                        </Text>
+                        <Text style={styles.pathMeta}>
+                          {fmtMin(opt.durationSeconds)} com trânsito · {fmtKm(opt.distanceMeters)}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </>
+          )}
 
           <SectionHeader title="Horário de saída e dias" />
           <FieldLabel>Horário em que você sai do local de origem</FieldLabel>
@@ -221,4 +295,20 @@ const styles = StyleSheet.create({
   vehicleBtnActive: { backgroundColor: colors.accent, borderColor: colors.accent },
   vehicleText: { fontFamily: fonts.sansSemiBold, fontSize: 14, color: colors.textSecondary },
   vehicleTextActive: { color: colors.textDark },
+  optionsLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
+  optionsLoadingText: { fontFamily: fonts.sans, fontSize: 13, color: colors.textMuted },
+  optionsEmpty: { fontFamily: fonts.sans, fontSize: 13, color: colors.textMuted, paddingVertical: 10 },
+  pathCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderWidth: 1, borderColor: colors.borderStrong, padding: 14, marginBottom: 10,
+  },
+  pathCardActive: { borderColor: colors.accent, borderLeftWidth: 2 },
+  pathRadio: {
+    width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.borderStrong,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  pathRadioActive: { borderColor: colors.accent },
+  pathRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
+  pathTitle: { fontFamily: fonts.sansSemiBold, fontSize: 14, color: colors.textPrimary },
+  pathMeta: { fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary, marginTop: 3 },
 });

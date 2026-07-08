@@ -42,6 +42,20 @@ export const mapsService = {
    * Resultado cacheado por 5 minutos para rotas similares (P1, P2).
    */
   async getTrafficData(route) {
+    // Se o usuário escolheu um caminho específico, cronometra EXATAMENTE ele
+    // (reconstrução via supportingPoints), em vez do "mais rápido" automático.
+    if (Array.isArray(route.routePoints) && route.routePoints.length >= 2) {
+      const rid = route.routeId ?? route.id;
+      const [h, m] = route.departureTime.split(':').map(Number);
+      const slot = Math.floor((h * 60 + m) / 5) * 5;
+      const key = `traffic:path:${rid}:${slot}`;
+      const cached = await cacheService.get(key);
+      if (cached) { console.log(`[Maps] Cache hit (path): ${route.name}`); return cached; }
+      const result = await this.getTrafficDataForPoints(route.routePoints, route.vehicleType);
+      await cacheService.set(key, result, 300);
+      return result;
+    }
+
     const cacheKey = buildCacheKey(route);
     const cached = await cacheService.get(cacheKey);
     if (cached) {
@@ -76,6 +90,69 @@ export const mapsService = {
   },
 
   /**
+   * Retorna os caminhos disponíveis (até 3) entre origem e destino, cada um com
+   * sua geometria (pontos). Usado na tela de nova rota para o usuário ESCOLHER
+   * qual caminho ele faz.
+   */
+  async getRouteOptions(origin, destination, vehicleType) {
+    const travelMode = vehicleType === 'motorcycle' ? 'motorcycle' : 'car';
+    const locations = `${origin.lat},${origin.lng}:${destination.lat},${destination.lng}`;
+    const { data } = await axios.get(`${ROUTING_BASE}/${encodeURIComponent(locations)}/json`, {
+      params: {
+        key: process.env.TOMTOM_API_KEY,
+        traffic: true,
+        travelMode,
+        routeType: 'fastest',
+        maxAlternatives: 2,          // até 3 rotas no total
+        computeTravelTimeFor: 'all',
+        routeRepresentation: 'polyline', // inclui a geometria (legs[].points)
+        language: 'pt-BR',
+      },
+      timeout: 10000,
+    });
+
+    return (data.routes ?? []).map((r, i) => {
+      const s = r.summary ?? {};
+      const pts = (r.legs ?? [])
+        .flatMap(l => l.points ?? [])
+        .map(p => ({ lat: p.latitude, lng: p.longitude }));
+      return {
+        index: i,
+        durationSeconds: s.travelTimeInSeconds ?? 0,
+        staticDurationSeconds: s.noTrafficTravelTimeInSeconds ?? s.travelTimeInSeconds ?? 0,
+        distanceMeters: s.lengthInMeters ?? 0,
+        points: downsamplePoints(pts, 25),
+      };
+    });
+  },
+
+  /**
+   * Reconstrói e cronometra um caminho específico (o escolhido pelo usuário),
+   * passando seus pontos como supportingPoints — com tráfego em tempo real.
+   */
+  async getTrafficDataForPoints(points, vehicleType) {
+    const travelMode = vehicleType === 'motorcycle' ? 'motorcycle' : 'car';
+    const o = points[0];
+    const d = points[points.length - 1];
+    const locations = `${o.lat},${o.lng}:${d.lat},${d.lng}`;
+    const body = { supportingPoints: points.map(p => ({ latitude: p.lat, longitude: p.lng })) };
+
+    const { data } = await axios.post(`${ROUTING_BASE}/${encodeURIComponent(locations)}/json`, body, {
+      params: {
+        key: process.env.TOMTOM_API_KEY,
+        traffic: true,
+        travelMode,
+        computeTravelTimeFor: 'all',
+        routeRepresentation: 'summaryOnly',
+      },
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 10000,
+    });
+
+    return parseRoutesResponse(data);
+  },
+
+  /**
    * URL da TomTom Static Map API para thumbnail do mapa (uso futuro em T08).
    * Usa a API Key do servidor — nunca exposta no app.
    */
@@ -98,6 +175,16 @@ export const mapsService = {
 };
 
 // ---------- helpers ----------
+
+// Reduz a geometria a no máximo `max` pontos (mantém início/fim), para caber
+// como supportingPoints na reconstrução sem estourar o limite da API.
+function downsamplePoints(points, max = 25) {
+  if (points.length <= max) return points;
+  const step = (points.length - 1) / (max - 1);
+  const out = [];
+  for (let i = 0; i < max; i++) out.push(points[Math.round(i * step)]);
+  return out;
+}
 
 function buildCacheKey(route) {
   // Arredonda lat/lng para 3 casas para agrupar rotas similares (P2)

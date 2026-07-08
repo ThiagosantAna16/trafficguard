@@ -1,6 +1,7 @@
 import { authMiddleware } from '../middleware/auth.js';
 import { db } from '../config/db.js';
 import { cronService } from '../services/cronService.js';
+import { mapsService } from '../services/mapsService.js';
 import { randomUUID } from 'crypto';
 
 const MAX_ROUTES = 3; // RN07
@@ -15,6 +16,21 @@ export default async function routeRoutes(app) {
     return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
   });
 
+  // Lista os caminhos disponíveis (até 3) entre origem e destino, para o
+  // usuário escolher qual ele realmente faz (com geometria para monitorar).
+  app.post('/routes/options', { preHandler: authMiddleware }, async (request, reply) => {
+    const { origin, destination, vehicleType } = request.body ?? {};
+    if (!origin?.lat || !origin?.lng || !destination?.lat || !destination?.lng) {
+      return reply.status(400).send({ error: 'Origem e destino (com coordenadas) são obrigatórios' });
+    }
+    try {
+      return await mapsService.getRouteOptions(origin, destination, vehicleType);
+    } catch (err) {
+      request.log.error(`[Routes] options falhou: ${err.message}`);
+      return reply.status(502).send({ error: 'Não foi possível obter os caminhos' });
+    }
+  });
+
   // Cria nova rota (máx 3 por usuário — RN07)
   app.post('/routes', { preHandler: authMiddleware }, async (request, reply) => {
     const userRef = db.collection('users').doc(request.userId);
@@ -25,7 +41,7 @@ export default async function routeRoutes(app) {
       return reply.status(400).send({ error: 'Limite de 3 rotas atingido' });
     }
 
-    const { name, emoji, origin, destination, departureTime, daysOfWeek, alertAdvance, alertTolerance, vehicleType } = request.body ?? {};
+    const { name, emoji, origin, destination, departureTime, daysOfWeek, alertAdvance, alertTolerance, vehicleType, routePoints } = request.body ?? {};
 
     // RN08, RN09, RN10, RN11
     if (!name || !origin?.address || !destination?.address || !departureTime || !daysOfWeek?.length) {
@@ -45,6 +61,7 @@ export default async function routeRoutes(app) {
       alertAdvance: alertAdvance ?? 30,    // 15|30|45|60
       alertTolerance: alertTolerance ?? 15, // 5|10|15|30
       vehicleType: vehicleType === 'motorcycle' ? 'motorcycle' : 'car',
+      routePoints: Array.isArray(routePoints) && routePoints.length >= 2 ? routePoints : null,
       isActive: true,
       baseTime: null,
       lastCheckedAt: null,
@@ -78,14 +95,14 @@ export default async function routeRoutes(app) {
       return reply.status(404).send({ error: 'Rota não encontrada' });
     }
 
-    const allowed = ['name', 'emoji', 'origin', 'destination', 'departureTime', 'daysOfWeek', 'alertAdvance', 'alertTolerance', 'vehicleType'];
+    const allowed = ['name', 'emoji', 'origin', 'destination', 'departureTime', 'daysOfWeek', 'alertAdvance', 'alertTolerance', 'vehicleType', 'routePoints'];
     const updates = { updatedAt: new Date() };
     for (const key of allowed) {
       if (request.body?.[key] !== undefined) updates[key] = request.body[key];
     }
 
-    // Ao mudar rota ou veículo, zera o tempo base para recalcular
-    if (updates.origin || updates.destination || updates.vehicleType) updates.baseTime = null;
+    // Ao mudar rota, veículo ou caminho, zera o tempo base para recalcular
+    if (updates.origin || updates.destination || updates.vehicleType || updates.routePoints) updates.baseTime = null;
 
     await routeRef.update(updates);
     const updated = { id: routeId, ...snap.data(), ...updates };

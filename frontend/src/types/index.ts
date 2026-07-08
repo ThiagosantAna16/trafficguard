@@ -25,6 +25,7 @@ export interface Route {
   alertAdvance: number;        // minutos
   alertTolerance: number;      // minutos
   vehicleType?: 'car' | 'motorcycle';
+  routePoints?: { lat: number; lng: number }[] | null;
   isActive: boolean;
   baseTime: number | null;     // segundos
   lastCheckedAt: string | null;
