@@ -17,6 +17,12 @@ const DAYS = [
 const TOLERANCE_OPTIONS = [5, 10, 15, 20, 30];
 const ADVANCE_OPTIONS = [15, 20, 30, 45, 60];
 
+// Máscara HH:MM — os ":" são fixos; usuário digita só os dígitos
+const maskTime = (text: string): string => {
+  const d = text.replace(/\D/g, '').slice(0, 4);
+  return d.length <= 2 ? d : `${d.slice(0, 2)}:${d.slice(2)}`;
+};
+
 export default function EditRouteScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -83,8 +89,8 @@ export default function EditRouteScreen() {
           <TextInput
             style={styles.input}
             value={departureTime}
-            onChangeText={setDepartureTime}
-            keyboardType="numbers-and-punctuation"
+            onChangeText={t => setDepartureTime(maskTime(t))}
+            keyboardType="number-pad"
             maxLength={5}
             placeholderTextColor={colors.textMuted}
           />

@@ -17,6 +17,12 @@ import { CheckIcon } from '../../../src/components/Icon';
 const fmtKm = (m: number) => `${(m / 1000).toFixed(1).replace('.', ',')} km`;
 const fmtMin = (s: number) => `~${Math.round(s / 60)} min`;
 
+// Máscara HH:MM — os ":" são fixos; usuário digita só os dígitos
+const maskTime = (text: string): string => {
+  const d = text.replace(/\D/g, '').slice(0, 4);
+  return d.length <= 2 ? d : `${d.slice(0, 2)}:${d.slice(2)}`;
+};
+
 const DAYS = [
   { label: 'D', value: 0 }, { label: 'S', value: 1 }, { label: 'T', value: 2 },
   { label: 'Q', value: 3 }, { label: 'Q', value: 4 }, { label: 'S', value: 5 }, { label: 'S', value: 6 },
@@ -203,9 +209,10 @@ export default function NewRouteScreen() {
           <SectionHeader title="Horário de saída e dias" />
           <FieldLabel>Horário em que você sai do local de origem</FieldLabel>
           <TextInput
-            style={[inputStyle('time'), styles.timeInput]} value={departureTime} onChangeText={setDepartureTime}
+            style={[inputStyle('time'), styles.timeInput]} value={departureTime}
+            onChangeText={t => setDepartureTime(maskTime(t))}
             placeholder="08:00" placeholderTextColor={colors.textMuted}
-            keyboardType="numbers-and-punctuation" maxLength={5}
+            keyboardType="number-pad" maxLength={5}
             onFocus={() => setFocusedField('time')} onBlur={() => setFocusedField(null)}
           />
           <View style={styles.daysRow}>
