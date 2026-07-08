@@ -20,7 +20,7 @@ function buildHtml(routes: { points: LatLng[] }[], selected: number): string {
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"/>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-  html,body,#map{margin:0;padding:0;height:100%;width:100%;background:#0A0E13}
+  html,body,#map{margin:0;padding:0;height:100%;width:100%;background:#e9e5de}
   .leaflet-control-zoom a{width:34px;height:34px;line-height:34px;font-size:20px}
 </style>
 </head><body><div id="map"></div>
@@ -29,15 +29,15 @@ function buildHtml(routes: { points: LatLng[] }[], selected: number): string {
   var routes = ${JSON.stringify(data)};
   var palette = ${JSON.stringify(ROUTE_COLORS)};
   var map = L.map('map',{zoomControl:true,attributionControl:false,dragging:true,touchZoom:true,scrollWheelZoom:false,doubleClickZoom:true,boxZoom:false,keyboard:false});
-  // Basemap escuro e clean do CARTO (grátis, sem chave) — combina com o app
-  L.tileLayer('https://{s}.basemap.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
+  // Basemap CARTO Voyager: detalhado (ruas nomeadas, POIs, referências), grátis
+  L.tileLayer('https://{s}.basemap.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{
     subdomains:'abcd', maxZoom:20, detectRetina:true
   }).addTo(map);
   var lines = routes.map(function(pts,i){
     var c = palette[i%palette.length];
-    // halo escuro por baixo p/ contraste + linha colorida por cima
-    L.polyline(pts,{color:'#05070A',weight:7,opacity:0.9,lineJoin:'round',lineCap:'round'}).addTo(map);
-    return L.polyline(pts,{color:c,weight:3.5,opacity:0.65,lineJoin:'round',lineCap:'round'}).addTo(map);
+    // halo branco por baixo p/ contraste sobre o mapa claro + linha colorida por cima
+    L.polyline(pts,{color:'#ffffff',weight:8,opacity:0.9,lineJoin:'round',lineCap:'round'}).addTo(map);
+    return L.polyline(pts,{color:c,weight:4,opacity:0.85,lineJoin:'round',lineCap:'round'}).addTo(map);
   });
   var all=[]; routes.forEach(function(p){ all=all.concat(p); });
   if(all.length){ map.fitBounds(L.latLngBounds(all).pad(0.18)); }
@@ -87,6 +87,6 @@ export function RouteMap({ routes, selectedIndex, height = 200 }: Props) {
 
 const styles = StyleSheet.create({
   wrap: { borderWidth: 1, borderColor: colors.borderStrong, overflow: 'hidden' },
-  web: { flex: 1, backgroundColor: colors.darkBg },
+  web: { flex: 1, backgroundColor: '#e9e5de' },
   attribution: { fontFamily: fonts.sans, fontSize: 9.5, color: colors.textMuted, marginTop: 4, textAlign: 'right' },
 });
