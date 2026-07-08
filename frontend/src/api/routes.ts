@@ -8,6 +8,7 @@ export interface RouteOption {
   durationSeconds: number;
   staticDurationSeconds: number;
   distanceMeters: number;
+  via?: string;
   points: LatLng[];
 }
 

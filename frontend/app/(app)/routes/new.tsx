@@ -11,6 +11,7 @@ import { routesApi, RouteOption } from '../../../src/api/routes';
 import { GeoResult } from '../../../src/api/geocode';
 import { Button } from '../../../src/components/Button';
 import { AddressField } from '../../../src/components/AddressField';
+import { RouteMap, ROUTE_COLORS } from '../../../src/components/RouteMap';
 import { CheckIcon } from '../../../src/components/Icon';
 
 const fmtKm = (m: number) => `${(m / 1000).toFixed(1).replace('.', ',')} km`;
@@ -165,29 +166,36 @@ export default function NewRouteScreen() {
               ) : options.length === 0 ? (
                 <Text style={styles.optionsEmpty}>Nenhum caminho encontrado. Verifique os endereços.</Text>
               ) : (
-                options.map((opt, i) => {
-                  const active = selectedIdx === i;
-                  return (
-                    <TouchableOpacity
-                      key={i}
-                      style={[styles.pathCard, active && styles.pathCardActive]}
-                      onPress={() => setSelectedIdx(i)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={[styles.pathRadio, active && styles.pathRadioActive]}>
-                        {active && <View style={styles.pathRadioDot} />}
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.pathTitle}>
-                          Caminho {i + 1}{i === 0 ? ' · mais rápido' : ''}
-                        </Text>
-                        <Text style={styles.pathMeta}>
-                          {fmtMin(opt.durationSeconds)} com trânsito · {fmtKm(opt.distanceMeters)}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })
+                <>
+                  <RouteMap routes={options} selectedIndex={selectedIdx} height={200} />
+                  <Text style={styles.pathHint}>Toque no caminho que você faz — ele fica destacado no mapa.</Text>
+                  {options.map((opt, i) => {
+                    const active = selectedIdx === i;
+                    const color = ROUTE_COLORS[i % ROUTE_COLORS.length];
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        style={[styles.pathCard, active && styles.pathCardActive]}
+                        onPress={() => setSelectedIdx(i)}
+                        activeOpacity={0.8}
+                      >
+                        <View style={[styles.pathColorDot, { backgroundColor: color }]} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.pathTitle}>
+                            Caminho {i + 1}{i === 0 ? ' · mais rápido' : ''}
+                          </Text>
+                          {!!opt.via && <Text style={styles.pathVia} numberOfLines={1}>{opt.via}</Text>}
+                          <Text style={styles.pathMeta}>
+                            {fmtMin(opt.durationSeconds)} com trânsito · {fmtKm(opt.distanceMeters)}
+                          </Text>
+                        </View>
+                        <View style={[styles.pathRadio, active && styles.pathRadioActive]}>
+                          {active && <View style={styles.pathRadioDot} />}
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </>
               )}
             </>
           )}
@@ -298,11 +306,13 @@ const styles = StyleSheet.create({
   optionsLoading: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12 },
   optionsLoadingText: { fontFamily: fonts.sans, fontSize: 13, color: colors.textMuted },
   optionsEmpty: { fontFamily: fonts.sans, fontSize: 13, color: colors.textMuted, paddingVertical: 10 },
+  pathHint: { fontFamily: fonts.sans, fontSize: 12, color: colors.textMuted, marginTop: 10, marginBottom: 12 },
   pathCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     borderWidth: 1, borderColor: colors.borderStrong, padding: 14, marginBottom: 10,
   },
   pathCardActive: { borderColor: colors.accent, borderLeftWidth: 2 },
+  pathColorDot: { width: 12, height: 12, borderRadius: 6 },
   pathRadio: {
     width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: colors.borderStrong,
     alignItems: 'center', justifyContent: 'center',
@@ -310,5 +320,6 @@ const styles = StyleSheet.create({
   pathRadioActive: { borderColor: colors.accent },
   pathRadioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.accent },
   pathTitle: { fontFamily: fonts.sansSemiBold, fontSize: 14, color: colors.textPrimary },
-  pathMeta: { fontFamily: fonts.mono, fontSize: 12, color: colors.textSecondary, marginTop: 3 },
+  pathVia: { fontFamily: fonts.sans, fontSize: 12, color: colors.textSecondary, marginTop: 2 },
+  pathMeta: { fontFamily: fonts.mono, fontSize: 11.5, color: colors.textMuted, marginTop: 3 },
 });

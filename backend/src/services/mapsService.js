@@ -106,6 +106,7 @@ export const mapsService = {
         maxAlternatives: 2,          // até 3 rotas no total
         computeTravelTimeFor: 'all',
         routeRepresentation: 'polyline', // inclui a geometria (legs[].points)
+        instructionsType: 'text',        // guidance p/ extrair as vias principais
         language: 'pt-BR',
       },
       timeout: 10000,
@@ -121,6 +122,7 @@ export const mapsService = {
         durationSeconds: s.travelTimeInSeconds ?? 0,
         staticDurationSeconds: s.noTrafficTravelTimeInSeconds ?? s.travelTimeInSeconds ?? 0,
         distanceMeters: s.lengthInMeters ?? 0,
+        via: mainRoads(r),
         points: downsamplePoints(pts, 25),
       };
     });
@@ -175,6 +177,26 @@ export const mapsService = {
 };
 
 // ---------- helpers ----------
+
+// Extrai as vias principais do trajeto (as que cobrem mais distância),
+// para um rótulo tipo "via Marginal Pinheiros · Av. dos Bandeirantes".
+function mainRoads(route) {
+  const instr = route.guidance?.instructions ?? [];
+  const total = route.summary?.lengthInMeters ?? 0;
+  const meters = {};
+  for (let i = 0; i < instr.length; i++) {
+    const name = instr[i].roadNumbers?.[0] || instr[i].street;
+    if (!name) continue;
+    const start = instr[i].routeOffsetInMeters ?? 0;
+    const end = instr[i + 1]?.routeOffsetInMeters ?? total;
+    meters[name] = (meters[name] || 0) + Math.max(0, end - start);
+  }
+  const top = Object.entries(meters)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 2)
+    .map(([name]) => name);
+  return top.length ? `via ${top.join(' · ')}` : '';
+}
 
 // Reduz a geometria a no máximo `max` pontos (mantém início/fim), para caber
 // como supportingPoints na reconstrução sem estourar o limite da API.
